@@ -1,0 +1,45 @@
+[tool.poetry]
+name = "routee-transit"
+version = "0.1.0"
+description = ""
+authors = ["Your Name <you@example.com>"]
+readme = "README.md"
+
+# Add the custom repository as a supplemental source
+[[tool.poetry.source]]
+name = "nrel"
+url = "https://github.nrel.gov/pages/MBAP/mbap-pypi/"
+priority = "supplemental"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+
+# Specify that nrel-mappymatch should be installed from your custom source
+nrel-mappymatch = { version = "*", source = "nrel" }
+gradeit = "^0.1.2"
+geocoder = "^1.38.1"
+rich = "^14.0.0"
+rasterio = "^1.4.3"
+shapely = "^2.1.1"
+pyproj = "^3.7.1"
+nrel-routee-powertrain = "^1.2.2"
+pandas = "^2.3.0"
+geopy = "^2.4.1"
+geopandas = "^1.1.1"
+sqlalchemy = "^2.0.41"
+requests = "^2.32.4"
+gtfsblocks = "^0.1.1"
+mappymatch = "^0.6.1"
+
+[tool.poetry.group.docs.dependencies]
+mkdocs = "^1.5.3"
+mkdocs-material = "^9.5.18"
+mkdocstrings = {extras = ["python"], version = "^0.24.0"}
+
+
+[tool.poetry.group.dev.dependencies]
+ipykernel = "^6.29.5"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
