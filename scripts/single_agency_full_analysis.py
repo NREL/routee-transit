@@ -58,10 +58,11 @@ if __name__ == "__main__":
     # Set inputs
     n_proc = mp.cpu_count()
     agency = "saltlake"
-    routee_vehicle_model = "routee_transit/vehicle_models/RouteE_Test_Vehicle.json"
+    veh_name = "SLC_BEB"
+    routee_vehicle_model = f"routee_transit/vehicle_models/{veh_name}.json"
     raster_path = "data/usgs_elevation"
     # Number of trips to include in analysis. If None, all will be analyzed.
-    n_trips_incl = None
+    n_trips_incl = 100
 
     start_time = time.time()
     routee_input_df = build_routee_features_with_osm(
@@ -88,11 +89,12 @@ if __name__ == "__main__":
     )
 
     # Summarize predictions by trip
+    agg_cols = [c for c in ["gallons", "kWhs"] if c in routee_results.columns]
     energy_by_trip = routee_results.groupby("trip_id").agg(
-        {"kilometers": "sum", "gallons": "sum"}
+        {"kilometers": "sum", **{c: "sum" for c in agg_cols}}
     )
     energy_by_trip["miles"] = 0.6213712 * energy_by_trip["kilometers"]
-    energy_by_trip["vehicle"] = "RouteE-Transit Test Vehicle"
+    energy_by_trip["vehicle"] = veh_name
     # TODO: save geometry data separate from energy predictions to save space
     energy_by_trip.drop(columns="kilometers").to_csv(
         f"reports/energy_predictions/{agency}_trip_energy_predictions.csv"
