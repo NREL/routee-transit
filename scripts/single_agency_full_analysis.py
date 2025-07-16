@@ -26,7 +26,7 @@ Outputs are saved as .csv files in the reports/ directory:
     to RouteE
 -   reports/energy_predictions/{agency}_link_energy_predictions.csv: link-level energy
     consumption predictions
--   "reports/energy_predictions/{agency}_trip_energy_predictions.csv: trip-level energy
+-   reports/energy_predictions/{agency}_trip_energy_predictions.csv: trip-level energy
     consumption predictions.
 """
 
@@ -84,6 +84,7 @@ if __name__ == "__main__":
         routee_vehicle_model=routee_vehicle_model,
         n_processes=n_proc,
     )
+    routee_results["vehicle"] = veh_name
     routee_results.to_csv(
         f"reports/energy_predictions/{agency}_link_energy_predictions.csv", index=False
     )
