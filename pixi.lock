@@ -10699,7 +10699,7 @@ packages:
 - pypi: ./
   name: routee-transit
   version: 0.1.0
-  sha256: b7e556b7f465bfd21d707306c2365cc2f45099e1c9e1262e2e2dbc52ee336f00
+  sha256: c9d86d349e6c2635d3c7fe1295281d63854873ff3a72fda4e73253d1b60d900b
   requires_dist:
   - pandas>=2.0
   - gtfsblocks>=0.1.2,<0.2
