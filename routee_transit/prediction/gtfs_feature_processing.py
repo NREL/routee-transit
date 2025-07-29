@@ -417,7 +417,7 @@ def build_routee_features_with_osm(
     n_trips: int | None = 100,
     add_road_grade: bool = False,
     gradeit_tile_path: Path | str | None = None,
-    n_processes: int | None = mp.cpu_count(),
+    n_processes: int = mp.cpu_count(),
 ) -> pd.DataFrame:
     """Process a GTFS feed to provide inputs for RouteE-powertrain energy prediction.
 
@@ -544,4 +544,3 @@ def build_routee_features_with_osm(
         result_df = pd.concat(trips_df_list)
 
     return result_df
-

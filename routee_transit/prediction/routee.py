@@ -12,9 +12,9 @@ MI_PER_KM = 0.6213712
 
 def predict_trip_energy(
     t_df: pd.DataFrame,
-    routee_model_str: str,
+    routee_model_str: str | Path,
     feature_cols: list[str],
-    distance_col: list[str],
+    distance_col: str,
 ):
     """Predict energy consumption using a provided RouteE model and trip data.
 
@@ -64,11 +64,9 @@ def predict_for_all_trips(
     with mp.Pool(n_processes) as pool:
         predictions_by_trip = pool.map(predict_partial, links_df_by_trip)
 
-    all_predictions =pd.concat(predictions_by_trip)
+    all_predictions = pd.concat(predictions_by_trip)
 
-    routee_results = pd.concat(
-        [routee_input_df, all_predictions], axis=1
-    )
+    routee_results = pd.concat([routee_input_df, all_predictions], axis=1)
     cols_incl = [
         "trip_id",
         "shape_id",
