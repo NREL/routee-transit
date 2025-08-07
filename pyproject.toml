@@ -10,6 +10,7 @@ dependencies = [
     "gradeit>=0.1.2,<0.2",
     "mappymatch>=0.6.1,<0.7",
     "geopandas>=1.1.1,<2",
+    "requests>=2.31.0,<3",
 ]
 
 [project.optional-dependencies]
@@ -22,6 +23,7 @@ dev = [
     "ipykernel>6.29,<7.0",
     "jupyter-book>=1.0,<2.0",
     "pandas-stubs>=2.0,<3.0",
+    "types-requests"
 ]
 
 [build-system]
