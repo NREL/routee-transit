@@ -11,7 +11,12 @@ parts:
 
   - caption: User Reference
     chapters:
+      - file: prediction
       - file: api
+
+  - caption: Examples
+    chapters:
+      - file: examples/Utah_Transit_Agency
 
   - caption: Developers
     chapters:
