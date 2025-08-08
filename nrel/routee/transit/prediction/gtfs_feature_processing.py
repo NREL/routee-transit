@@ -32,7 +32,7 @@ def upsample_shape(shape_df: pd.DataFrame) -> pd.DataFrame:
     The function performs the following steps:
 
     * Calculates the distance between consecutive shape points using great-circle distance
-    * Computes the cumulative distance traveled along the shape  
+    * Computes the cumulative distance traveled along the shape
     * Assigns timestamps based on constant speed (30 km/h)
     * Resamples and interpolates the shape to 1-second intervals
     * Returns DataFrame with interpolated coordinates, timestamps, and distances
@@ -246,7 +246,7 @@ def extend_trip_traces(
     """Extend trip shapes with stop details and estimated timestamps from GTFS.
 
     This function processes GTFS trip and shape data to:
-    
+
     * Summarize stop times for each trip (first/last stop and times)
     * Merge stop time summaries into the trips DataFrame
     * Attach stop coordinates to stop times
