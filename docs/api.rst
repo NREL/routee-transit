@@ -18,7 +18,7 @@ GTFS Processing
     :show-inheritance:
 
 Prediction with RouteE-Powertrain
-----------
+---------------------------------
 
 .. automodule:: nrel.routee.transit.prediction.routee
     :members:

@@ -7,7 +7,7 @@ parts:
   - caption: Getting Started
     chapters:
       - file: installation
-      - file: usage
+      - file: data
 
   - caption: User Reference
     chapters:

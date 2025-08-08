@@ -246,29 +246,29 @@ def extend_trip_traces(
     """Extend trip shapes with stop details and estimated timestamps from GTFS.
 
     This function processes GTFS trip and shape data to:
-    - Summarize stop times for each trip (first/last stop and times).
-    - Merge stop time summaries into the trips DataFrame.
-    - Attach stop coordinates to stop times.
-    - Merge trip and shape data to create ordered trip traces.
-    - Optionally, attach stop indicators to shape trace points.
-    - Estimate timestamps for each trace point based on scheduled trip duration and
-      distance.
+    
+    * Summarize stop times for each trip (first/last stop and times)
+    * Merge stop time summaries into the trips DataFrame
+    * Attach stop coordinates to stop times
+    * Merge trip and shape data to create ordered trip traces
+    * Optionally, attach stop indicators to shape trace points
+    * Estimate timestamps for each trace point based on scheduled trip duration and distance
 
     Args:
-        trips_df (pd.DataFrame): DataFrame containing trip information, including
+        trips_df: DataFrame containing trip information, including
             'trip_id' and 'shape_id'.
-        matched_shapes_df (pd.DataFrame): DataFrame with shape points matched to trips,
+        matched_shapes_df: DataFrame with shape points matched to trips,
             including 'shape_id' and 'shape_dist_traveled'.
-        feed (gtfsblocks.Feed): GTFS feed object containing 'stop_times' and 'stops'
+        feed: GTFS feed object containing 'stop_times' and 'stops'
             DataFrames.
-        add_stop_flag (bool, optional): If True, attaches stop indicators to shape trace
+        add_stop_flag: If True, attaches stop indicators to shape trace
             points. Defaults to False.
-        n_processes (int | None, optional): Number of processes to run in parallel using
+        n_processes: Number of processes to run in parallel using
             multiprocessing. Defaults to mp.cpu_count().
 
     Returns:
-        list: A list of DataFrames, one per trip, with extended trace information
-            including estimated timestamps.
+        A list of DataFrames, one per trip, with extended trace information
+        including estimated timestamps.
     """
 
     # 3) Estimate speeds
@@ -339,7 +339,7 @@ def extend_trip_traces(
 
 def build_routee_features_with_osm(
     input_directory: Union[str, Path],
-    n_trips: int | None = 100,
+    n_trips: int | None = None,
     add_road_grade: bool = False,
     tile_resolution: TileResolution | str = TileResolution.ONE_THIRD_ARC_SECOND,
     n_processes: int = mp.cpu_count(),
