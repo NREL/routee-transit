@@ -12,7 +12,7 @@ import time
 import argparse
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 import requests
 from google.transit import gtfs_realtime_pb2
@@ -80,7 +80,7 @@ class GTFSRealtimeScraper:
         signal.signal(signal.SIGINT, self._signal_handler)
         signal.signal(signal.SIGTERM, self._signal_handler)
 
-    def _setup_logging(self):
+    def _setup_logging(self) -> None:
         """Configure logging to both file and console."""
         log_filename = (
             self.log_dir / f"scraper_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
@@ -97,7 +97,7 @@ class GTFSRealtimeScraper:
         self.logger = logging.getLogger(__name__)
         self.logger.info(f"Scraper initialized. Logs will be written to {log_filename}")
 
-    def _signal_handler(self, signum, frame):
+    def _signal_handler(self, signum, frame) -> None:
         """Handle shutdown signals gracefully."""
         self.logger.info(f"Received signal {signum}. Shutting down gracefully...")
         self.running = False
@@ -139,7 +139,7 @@ class GTFSRealtimeScraper:
         self.logger.error(f"Failed to fetch data after {self.max_retries + 1} attempts")
         return None
 
-    def _extract_vehicle_data(self, feed: gtfs_realtime_pb2.FeedMessage) -> List[Dict]:
+    def _extract_vehicle_data(self, feed: gtfs_realtime_pb2.FeedMessage) -> List[Dict[str, Any]]:
         """
         Extract vehicle position data from the feed.
 
@@ -221,7 +221,7 @@ class GTFSRealtimeScraper:
 
         return vehicles
 
-    def _write_records(self, vehicles: List[Dict]):
+    def _write_records(self, vehicles: List[Dict[str, Any]]) -> None:
         """
         Write vehicle records to log files.
 
@@ -245,7 +245,7 @@ class GTFSRealtimeScraper:
         except Exception as e:
             self.logger.error(f"Failed to write records: {e}")
 
-    def run(self):
+    def run(self) -> None:
         """Start the continuous scraping process."""
         self.logger.info(f"Starting continuous scraper for {self.feed_url}")
         self.logger.info(f"Poll interval: {self.poll_interval} seconds")
@@ -283,7 +283,7 @@ class GTFSRealtimeScraper:
         self.logger.info("Scraper stopped")
 
 
-def main():
+def main() -> None:
     """Main entry point for the scraper."""
 
     args = parser.parse_args()

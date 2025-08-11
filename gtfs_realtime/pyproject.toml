@@ -9,3 +9,8 @@ dependencies = [
     "requests>=2.32.4",
     "urllib3>=2.5.0",
 ]
+
+[dependency-groups]
+dev = [
+    "types-requests>=2.32.4.20250809",
+]
