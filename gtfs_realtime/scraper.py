@@ -16,6 +16,7 @@ from typing import Any, Dict, List, Optional
 
 import requests
 from google.transit import gtfs_realtime_pb2
+from google.protobuf.json_format import MessageToDict
 
 parser = argparse.ArgumentParser("GTFS scraper. runs until interrupted (ctl-c)")
 parser.add_argument("feed", help="URL to scrape GTFS data from")
@@ -153,72 +154,7 @@ class GTFSRealtimeScraper:
 
         for entity in feed.entity:
             if entity.HasField("vehicle"):
-                vehicle = entity.vehicle
-
-                vehicle_data = {
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                    "feed_timestamp": datetime.fromtimestamp(
-                        feed.header.timestamp, timezone.utc
-                    ).isoformat()
-                    if feed.header.timestamp
-                    else None,
-                    "entity_id": entity.id,
-                    "vehicle_id": vehicle.vehicle.id if vehicle.vehicle else None,
-                    "trip_id": vehicle.trip.trip_id
-                    if vehicle.HasField("trip")
-                    else None,
-                    "route_id": vehicle.trip.route_id
-                    if vehicle.HasField("trip")
-                    else None,
-                    "direction_id": vehicle.trip.direction_id
-                    if vehicle.HasField("trip")
-                    and vehicle.trip.HasField("direction_id")
-                    else None,
-                    "start_time": vehicle.trip.start_time
-                    if vehicle.HasField("trip")
-                    else None,
-                    "start_date": vehicle.trip.start_date
-                    if vehicle.HasField("trip")
-                    else None,
-                    "schedule_relationship": vehicle.trip.schedule_relationship
-                    if vehicle.HasField("trip")
-                    else None,
-                }
-
-                # Add position data if available
-                if vehicle.HasField("position"):
-                    vehicle_data.update(
-                        {
-                            "latitude": vehicle.position.latitude,
-                            "longitude": vehicle.position.longitude,
-                            "bearing": vehicle.position.bearing
-                            if vehicle.position.HasField("bearing")
-                            else None,
-                            "speed": vehicle.position.speed
-                            if vehicle.position.HasField("speed")
-                            else None,
-                        }
-                    )
-
-                # Add current status if available
-                if vehicle.HasField("current_status"):
-                    vehicle_data["current_status"] = vehicle.current_status
-
-                # Add stop sequence if available
-                if vehicle.HasField("stop_id"):
-                    vehicle_data["stop_id"] = vehicle.stop_id
-
-                if vehicle.HasField("current_stop_sequence"):
-                    vehicle_data["current_stop_sequence"] = (
-                        vehicle.current_stop_sequence
-                    )
-
-                # Add congestion level if available
-                if vehicle.HasField("congestion_level"):
-                    vehicle_data["congestion_level"] = vehicle.congestion_level
-
-                vehicles.append(vehicle_data)
-
+                vehicles.append(MessageToDict(entity))
         return vehicles
 
     def _write_records(self, vehicles: List[Dict[str, Any]]) -> None:
