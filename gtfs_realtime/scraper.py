@@ -19,23 +19,43 @@ from google.transit import gtfs_realtime_pb2
 
 parser = argparse.ArgumentParser("GTFS scraper. runs until interrupted (ctl-c)")
 parser.add_argument("feed", help="URL to scrape GTFS data from")
-parser.add_argument("--log-dir", type=Path, default=Path("gtfs_logs"), help="directory to write results")
-parser.add_argument("--retries", type=int, default=3, help="URL connection retry policy before terminating")
-parser.add_argument("--interval", type=int, default=30, help="time, in seconds, between polling the feed")
-parser.add_argument("--timeout", type=int, default=10, help="time, in seconds, to allow the HTTP connection to run for a given polling request")
+parser.add_argument(
+    "--log-dir", type=Path, default=Path("gtfs_logs"), help="directory to write results"
+)
+parser.add_argument(
+    "--retries",
+    type=int,
+    default=3,
+    help="URL connection retry policy before terminating",
+)
+parser.add_argument(
+    "--interval",
+    type=int,
+    default=30,
+    help="time, in seconds, between polling the feed",
+)
+parser.add_argument(
+    "--timeout",
+    type=int,
+    default=10,
+    help="time, in seconds, to allow the HTTP connection to run for a given polling request",
+)
+
 
 class GTFSRealtimeScraper:
     """Continuous scraper for GTFS Realtime feeds with logging capabilities."""
-    
-    def __init__(self, 
-                 feed_url: str,
-                 poll_interval: int = 30,
-                 log_dir: str = "logs",
-                 max_retries: int = 3,
-                 timeout: int = 10):
+
+    def __init__(
+        self,
+        feed_url: str,
+        poll_interval: int = 30,
+        log_dir: str = "logs",
+        max_retries: int = 3,
+        timeout: int = 10,
+    ):
         """
         Initialize the scraper.
-        
+
         Args:
             feed_url: URL of the GTFS Realtime feed
             poll_interval: Time between requests in seconds (default: 60)
@@ -49,176 +69,209 @@ class GTFSRealtimeScraper:
         self.max_retries = max_retries
         self.timeout = timeout
         self.running = False
-        
+
         # Create log directory
         self.log_dir.mkdir(exist_ok=True)
-        
+
         # Setup logging
         self._setup_logging()
-        
+
         # Setup signal handlers for graceful shutdown
         signal.signal(signal.SIGINT, self._signal_handler)
         signal.signal(signal.SIGTERM, self._signal_handler)
-        
+
     def _setup_logging(self):
         """Configure logging to both file and console."""
-        log_filename = self.log_dir / f"scraper_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
-        
+        log_filename = (
+            self.log_dir / f"scraper_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
+        )
+
         logging.basicConfig(
             level=logging.INFO,
-            format='%(asctime)s - %(levelname)s - %(message)s',
+            format="%(asctime)s - %(levelname)s - %(message)s",
             handlers=[
                 logging.FileHandler(log_filename),
-                logging.StreamHandler(sys.stdout)
-            ]
+                logging.StreamHandler(sys.stdout),
+            ],
         )
         self.logger = logging.getLogger(__name__)
         self.logger.info(f"Scraper initialized. Logs will be written to {log_filename}")
-        
+
     def _signal_handler(self, signum, frame):
         """Handle shutdown signals gracefully."""
         self.logger.info(f"Received signal {signum}. Shutting down gracefully...")
         self.running = False
-        
+
     def _fetch_feed_data(self) -> Optional[gtfs_realtime_pb2.FeedMessage]:
         """
         Fetch and parse GTFS Realtime feed data with retry logic.
-        
+
         Returns:
             Parsed FeedMessage or None if failed
         """
         for attempt in range(self.max_retries + 1):
             try:
-                self.logger.debug(f"Fetching data from {self.feed_url} (attempt {attempt + 1})")
-                
+                self.logger.debug(
+                    f"Fetching data from {self.feed_url} (attempt {attempt + 1})"
+                )
+
                 response = requests.get(self.feed_url, timeout=self.timeout)
                 response.raise_for_status()
-                
+
                 feed = gtfs_realtime_pb2.FeedMessage()
                 feed.ParseFromString(response.content)
-                
-                self.logger.debug(f"Successfully parsed feed with {len(feed.entity)} entities")
+
+                self.logger.debug(
+                    f"Successfully parsed feed with {len(feed.entity)} entities"
+                )
                 return feed
-                
+
             except requests.exceptions.RequestException as e:
                 self.logger.warning(f"Request failed (attempt {attempt + 1}): {e}")
             except Exception as e:
                 self.logger.error(f"Parsing failed (attempt {attempt + 1}): {e}")
-                
+
             if attempt < self.max_retries:
-                wait_time = 2 ** attempt  # Exponential backoff
+                wait_time = 2**attempt  # Exponential backoff
                 self.logger.info(f"Retrying in {wait_time} seconds...")
                 time.sleep(wait_time)
-                
+
         self.logger.error(f"Failed to fetch data after {self.max_retries + 1} attempts")
         return None
-        
+
     def _extract_vehicle_data(self, feed: gtfs_realtime_pb2.FeedMessage) -> List[Dict]:
         """
         Extract vehicle position data from the feed.
-        
+
         Args:
             feed: Parsed GTFS Realtime feed
-            
+
         Returns:
             List of vehicle data dictionaries
         """
         vehicles = []
-        
+
         for entity in feed.entity:
-            if entity.HasField('vehicle'):
+            if entity.HasField("vehicle"):
                 vehicle = entity.vehicle
-                
+
                 vehicle_data = {
-                    'timestamp': datetime.now(timezone.utc).isoformat(),
-                    'feed_timestamp': datetime.fromtimestamp(feed.header.timestamp, timezone.utc).isoformat() if feed.header.timestamp else None,
-                    'entity_id': entity.id,
-                    'vehicle_id': vehicle.vehicle.id if vehicle.vehicle else None,
-                    'trip_id': vehicle.trip.trip_id if vehicle.HasField('trip') else None,
-                    'route_id': vehicle.trip.route_id if vehicle.HasField('trip') else None,
-                    'direction_id': vehicle.trip.direction_id if vehicle.HasField('trip') and vehicle.trip.HasField('direction_id') else None,
-                    'start_time': vehicle.trip.start_time if vehicle.HasField('trip') else None,
-                    'start_date': vehicle.trip.start_date if vehicle.HasField('trip') else None,
-                    'schedule_relationship': vehicle.trip.schedule_relationship if vehicle.HasField('trip') else None,
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "feed_timestamp": datetime.fromtimestamp(
+                        feed.header.timestamp, timezone.utc
+                    ).isoformat()
+                    if feed.header.timestamp
+                    else None,
+                    "entity_id": entity.id,
+                    "vehicle_id": vehicle.vehicle.id if vehicle.vehicle else None,
+                    "trip_id": vehicle.trip.trip_id
+                    if vehicle.HasField("trip")
+                    else None,
+                    "route_id": vehicle.trip.route_id
+                    if vehicle.HasField("trip")
+                    else None,
+                    "direction_id": vehicle.trip.direction_id
+                    if vehicle.HasField("trip")
+                    and vehicle.trip.HasField("direction_id")
+                    else None,
+                    "start_time": vehicle.trip.start_time
+                    if vehicle.HasField("trip")
+                    else None,
+                    "start_date": vehicle.trip.start_date
+                    if vehicle.HasField("trip")
+                    else None,
+                    "schedule_relationship": vehicle.trip.schedule_relationship
+                    if vehicle.HasField("trip")
+                    else None,
                 }
-                
+
                 # Add position data if available
-                if vehicle.HasField('position'):
-                    vehicle_data.update({
-                        'latitude': vehicle.position.latitude,
-                        'longitude': vehicle.position.longitude,
-                        'bearing': vehicle.position.bearing if vehicle.position.HasField('bearing') else None,
-                        'speed': vehicle.position.speed if vehicle.position.HasField('speed') else None,
-                    })
-                
+                if vehicle.HasField("position"):
+                    vehicle_data.update(
+                        {
+                            "latitude": vehicle.position.latitude,
+                            "longitude": vehicle.position.longitude,
+                            "bearing": vehicle.position.bearing
+                            if vehicle.position.HasField("bearing")
+                            else None,
+                            "speed": vehicle.position.speed
+                            if vehicle.position.HasField("speed")
+                            else None,
+                        }
+                    )
+
                 # Add current status if available
-                if vehicle.HasField('current_status'):
-                    vehicle_data['current_status'] = vehicle.current_status
-                    
+                if vehicle.HasField("current_status"):
+                    vehicle_data["current_status"] = vehicle.current_status
+
                 # Add stop sequence if available
-                if vehicle.HasField('stop_id'):
-                    vehicle_data['stop_id'] = vehicle.stop_id
-                    
-                if vehicle.HasField('current_stop_sequence'):
-                    vehicle_data['current_stop_sequence'] = vehicle.current_stop_sequence
-                    
+                if vehicle.HasField("stop_id"):
+                    vehicle_data["stop_id"] = vehicle.stop_id
+
+                if vehicle.HasField("current_stop_sequence"):
+                    vehicle_data["current_stop_sequence"] = (
+                        vehicle.current_stop_sequence
+                    )
+
                 # Add congestion level if available
-                if vehicle.HasField('congestion_level'):
-                    vehicle_data['congestion_level'] = vehicle.congestion_level
-                    
+                if vehicle.HasField("congestion_level"):
+                    vehicle_data["congestion_level"] = vehicle.congestion_level
+
                 vehicles.append(vehicle_data)
-                
+
         return vehicles
-        
+
     def _write_records(self, vehicles: List[Dict]):
         """
         Write vehicle records to log files.
-        
+
         Args:
             vehicles: List of vehicle data dictionaries
         """
         if not vehicles:
             return
-            
+
         # Create filename with current date
-        date_str = datetime.now().strftime('%Y%m%d')
+        date_str = datetime.now().strftime("%Y%m%d")
         records_file = self.log_dir / f"gtfs_realtime_records_{date_str}.jsonl"
-        
+
         try:
-            with open(records_file, 'a', encoding='utf-8') as f:
+            with open(records_file, "a", encoding="utf-8") as f:
                 for vehicle in vehicles:
-                    f.write(json.dumps(vehicle) + '\n')
-                    
+                    f.write(json.dumps(vehicle) + "\n")
+
             self.logger.info(f"Wrote {len(vehicles)} vehicle records to {records_file}")
-            
+
         except Exception as e:
             self.logger.error(f"Failed to write records: {e}")
-            
+
     def run(self):
         """Start the continuous scraping process."""
         self.logger.info(f"Starting continuous scraper for {self.feed_url}")
         self.logger.info(f"Poll interval: {self.poll_interval} seconds")
         self.logger.info(f"Log directory: {self.log_dir.absolute()}")
-        
+
         self.running = True
-        
+
         while self.running:
             try:
                 # Fetch and process data
                 feed = self._fetch_feed_data()
-                
+
                 if feed:
                     vehicles = self._extract_vehicle_data(feed)
                     self._write_records(vehicles)
                     self.logger.info(f"Processed {len(vehicles)} vehicles")
                 else:
                     self.logger.warning("No data retrieved this cycle")
-                    
+
                 # Wait for next poll
                 if self.running:  # Check if we should still be running
-                    self.logger.debug(f"Waiting {self.poll_interval} seconds until next poll...")
+                    self.logger.debug(
+                        f"Waiting {self.poll_interval} seconds until next poll..."
+                    )
                     time.sleep(self.poll_interval)
-                    
+
             except KeyboardInterrupt:
                 self.logger.info("Received keyboard interrupt")
                 break
@@ -226,7 +279,7 @@ class GTFSRealtimeScraper:
                 self.logger.error(f"Unexpected error in main loop: {e}")
                 if self.running:
                     time.sleep(self.poll_interval)
-                    
+
         self.logger.info("Scraper stopped")
 
 
@@ -234,16 +287,16 @@ def main():
     """Main entry point for the scraper."""
 
     args = parser.parse_args()
-    
+
     # Create and run scraper
     scraper = GTFSRealtimeScraper(
         feed_url=args.feed,
         poll_interval=args.interval,
         log_dir=args.log_dir,
         timeout=args.timeout,
-        max_retries=args.retries
+        max_retries=args.retries,
     )
-    
+
     try:
         scraper.run()
     except Exception as e:
