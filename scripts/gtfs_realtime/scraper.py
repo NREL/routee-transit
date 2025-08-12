@@ -99,7 +99,7 @@ class GTFSRealtimeScraper:
         self.logger.info(f"Scraper initialized. Logs will be written to {log_filename}")
 
     # type ignore: handler signature set by the signal package
-    def _signal_handler(self, signum, frame) -> None: # type: ignore
+    def _signal_handler(self, signum, frame) -> None:  # type: ignore
         """Handle shutdown signals gracefully."""
         self.logger.info(f"Received signal {signum}. Shutting down gracefully...")
         self.running = False
