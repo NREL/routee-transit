@@ -140,7 +140,9 @@ class GTFSRealtimeScraper:
         self.logger.error(f"Failed to fetch data after {self.max_retries + 1} attempts")
         return None
 
-    def _extract_vehicle_data(self, feed: gtfs_realtime_pb2.FeedMessage) -> List[Dict[str, Any]]:
+    def _extract_vehicle_data(
+        self, feed: gtfs_realtime_pb2.FeedMessage
+    ) -> List[Dict[str, Any]]:
         """
         Extract vehicle position data from the feed.
 
