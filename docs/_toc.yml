@@ -16,7 +16,7 @@ parts:
 
   - caption: Examples
     chapters:
-      - file: examples/Utah_Transit_Agency
+      - file: examples/Utah_Transit_Agency_example
 
   - caption: Developers
     chapters:

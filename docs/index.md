@@ -33,7 +33,7 @@ routee_results = predict_for_all_trips(
 )
 ```
 
-For a full example, see [](examples/Utah_Transit_Agency). That example can also be run as a script with `python scripts/single_agency_full_analysis.py`.
+For a full example, see [](examples/Utah_Transit_Agency_example). That example can also be run as a script with `python scripts/single_agency_full_analysis.py`.
 
 
 ## Available Models
