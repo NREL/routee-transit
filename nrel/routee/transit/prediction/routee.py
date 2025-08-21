@@ -2,8 +2,9 @@ import multiprocessing as mp
 from functools import partial
 from pathlib import Path
 
-import nrel.routee.powertrain as pt
 import pandas as pd
+
+import nrel.routee.powertrain as pt
 
 # Set constants
 FEET_PER_KM = 3280.84
