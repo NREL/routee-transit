@@ -49,7 +49,6 @@ def read_in_gtfs(
         ValueError: If no trips are found for the specified date or routes.
     """
 
-
     req_cols = {
         "stop_times": [
             "arrival_time",

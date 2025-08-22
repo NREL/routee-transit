@@ -7,7 +7,6 @@ import pandas as pd
 import nrel.routee.powertrain as pt
 
 # Set constants
-FEET_PER_KM = 3280.84
 MI_PER_KM = 0.6213712
 
 
@@ -75,3 +74,17 @@ def predict_for_all_trips(
         "grade",
     ] + list(all_predictions.columns)
     return routee_results[cols_incl]
+
+
+def aggregate_results_by_trip(
+    routee_results: pd.DataFrame, vehicle_name: str
+) -> pd.DataFrame:
+    """Summarize predictions by aggregating from links to trips."""
+    agg_cols = [c for c in ["gallons", "kWhs"] if c in routee_results.columns]
+    energy_by_trip = routee_results.groupby("trip_id").agg(
+        {"kilometers": "sum", **{c: "sum" for c in agg_cols}}
+    )
+    energy_by_trip["miles"] = MI_PER_KM * energy_by_trip["kilometers"]
+    energy_by_trip["vehicle"] = vehicle_name
+
+    return energy_by_trip.drop(columns="kilometers")

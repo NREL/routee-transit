@@ -41,6 +41,7 @@ if __name__ == "__main__":
     from nrel.routee.transit import (
         build_routee_features_with_osm,
         predict_for_all_trips,
+        aggregate_results_by_trip,
     )
 
     # Suppress GDAL/PROJ warnings, which flood the output when we run gradeit
@@ -80,6 +81,7 @@ if __name__ == "__main__":
     )
 
     logger.info("Finished building RouteE features")
+    # TODO: save geometry data separate from energy predictions to save space
     routee_input_df.to_csv(output_directory / "trip_features.csv", index=False)
 
     # 4) Predict energy consumption
@@ -92,14 +94,7 @@ if __name__ == "__main__":
     routee_results.to_csv(output_directory / "link_energy_predictions.csv", index=False)
 
     # Summarize predictions by trip
-    agg_cols = [c for c in ["gallons", "kWhs"] if c in routee_results.columns]
-    energy_by_trip = routee_results.groupby("trip_id").agg(
-        {"kilometers": "sum", **{c: "sum" for c in agg_cols}}
-    )
-    energy_by_trip["miles"] = 0.6213712 * energy_by_trip["kilometers"]
-    energy_by_trip["vehicle"] = routee_vehicle_model
-    # TODO: save geometry data separate from energy predictions to save space
-    energy_by_trip.drop(columns="kilometers").to_csv(
-        output_directory / "trip_energy_predictions.csv"
-    )
+    energy_by_trip = aggregate_results_by_trip(routee_results, routee_vehicle_model)
+
+    energy_by_trip.to_csv(output_directory / "trip_energy_predictions.csv")
     logger.info(f"Finished predictions in {time.time() - start_time:.2f} s")
