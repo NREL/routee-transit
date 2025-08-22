@@ -4,7 +4,7 @@ agency.
 
 It performs the following steps:
 1.  Reads in GTFS data into a gtfsblocks.Feed object and optionally filters down to a
-    random subset of trips (for faster testing).
+    subset of trips based on date and route names.
 2.  Processes the GTFS data to estimate speed and elevation along the set of road links
     traveled in each bus trip. This is done by (1) map-matching GTFS shapes to the
     OpenStreetMap road network with mappymatch, (2) aggregating map data to the link
@@ -22,8 +22,6 @@ Inputs can be adjusted manually within the script below and are as follows:
 -   raster_path (str): The directory path containing elevation raster data.
 
 Outputs are saved as .csv files in the reports/ directory:
--   reports/trip_features/{agency}_trip_features.csv: trip features that serve as inputs
-    to RouteE
 -   reports/energy_predictions/{agency}_link_energy_predictions.csv: link-level energy
     consumption predictions
 -   reports/energy_predictions/{agency}_trip_energy_predictions.csv: trip-level energy
@@ -35,7 +33,7 @@ if __name__ == "__main__":
     import multiprocessing as mp
     import os
     import time
-
+    import pandas as pd
     from pathlib import Path
 
     from nrel.routee.transit import (
@@ -68,9 +66,6 @@ if __name__ == "__main__":
     if not output_directory.exists():
         output_directory.mkdir(parents=True)
 
-    # Number of trips to include in analysis. If None, all will be analyzed.
-    n_trips_incl = 100
-
     start_time = time.time()
     routee_input_df = build_routee_features_with_osm(
         input_directory=input_directory,
@@ -81,10 +76,12 @@ if __name__ == "__main__":
     )
 
     logger.info("Finished building RouteE features")
-    # TODO: save geometry data separate from energy predictions to save space
-    routee_input_df.to_csv(output_directory / "trip_features.csv", index=False)
+    # Save geometry data separate from energy predictions to save space
+    geom = pd.concat([routee_input_df["road_id"], routee_input_df.pop("geom")], axis=1)
+    geom = geom.drop_duplicates(subset="geom")
+    geom.to_csv(output_directory / "link_geometry.csv", index=False)
 
-    # 4) Predict energy consumption
+    # Predict energy consumption
     routee_results = predict_for_all_trips(
         routee_input_df=routee_input_df,
         routee_vehicle_model=routee_vehicle_model,

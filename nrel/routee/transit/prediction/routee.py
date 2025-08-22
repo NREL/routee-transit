@@ -17,8 +17,8 @@ def predict_trip_energy(
     """Predict energy consumption using a provided RouteE model and trip data.
 
     Args:
-        t_df (pd.DataFrame): DataFrame containing trip link data, including geometry,
-            distance, travel time, and elevation.
+        t_df (pd.DataFrame): DataFrame containing trip link data, including distance,
+            travel time, grade, and elevation.
         routee_model_str (str): String specifying a nrel.routee.powertrain model for energy
             estimation. This could be the name of a model package with RouteE Powertrain
             or the path to a file hosting one.
@@ -68,7 +68,6 @@ def predict_for_all_trips(
         "trip_id",
         "shape_id",
         "road_id",
-        "geom",
         "kilometers",
         "travel_time_minutes",
         "grade",
