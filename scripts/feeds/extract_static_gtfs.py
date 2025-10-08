@@ -55,10 +55,11 @@ class GtfsExtractor:
         )
         return response.status_code
 
-    def query_mobility_db(self, query: str) -> List[Dict[str, Any]]:
+    def query_mobility_db(self, path: str, query: str) -> List[Dict[str, Any]]:
         """Make a request to the Mobility Database API with the given query
 
         Args:
+            path: The API path, e.g. "gtfs_feeds" or "datasets/gtfs"
             query: The query string to append to the base URL
 
         Returns:
@@ -66,7 +67,7 @@ class GtfsExtractor:
         """
         if self.api_key is None:
             self.api_key = self.get_api_key()
-        base_url = "https://api.mobilitydatabase.org/v1/gtfs_feeds"
+        base_url = f"https://api.mobilitydatabase.org/v1/{path}"
         query_url = f"{base_url}{query}"
         headers = {
             "accept": "application/json",
@@ -79,7 +80,7 @@ class GtfsExtractor:
     def get_gtfs_by_agency(self, agency: str, state: str, municipality: str) -> str:
         query = f"?&status=active&subdivision_name={state}&municipality={municipality}&q={agency}%"
 
-        results = self.query_mobility_db(query)
+        results = self.query_mobility_db(query, path="gtfs_feeds")
         last_path = ""
 
         if len(results) > 1:
@@ -112,7 +113,7 @@ class GtfsExtractor:
     def get_gtfs_query(self, user_query: str) -> str:
         api_query = f"?offset=0&status=active&subdivision_name={user_query}%"
 
-        results = self.query_mobility_db(api_query)
+        results = self.query_mobility_db(api_query, path="gtfs_feeds")
 
         if len(results) > 1:
             tmp_list = []
@@ -166,7 +167,7 @@ class GtfsExtractor:
     def get_gtfs_by_state(self, state: str, api_key: str) -> str:
         query = f"?&status=active&subdivision_name={state}"
         try:
-            results = self.query_mobility_db(query)
+            results = self.query_mobility_db(query, path="gtfs_feeds")
 
             if len(results) > 1:
                 print(len(results), f"results for {state}")

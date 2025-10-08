@@ -26,7 +26,8 @@ dev = [
     "jupyter-book>=1.0,<2.0",
     "pandas-stubs>=2.0,<3.0",
     # "nbformat>=5.10,<6.0",
-    "types-requests"
+    "types-requests",
+    "marimo>=0.16.5,<0.17"
 ]
 
 [build-system]
