@@ -62,6 +62,7 @@ if __name__ == "__main__":
     n_proc = mp.cpu_count()
     routee_vehicle_model = "Transit_Bus_Diesel"
     input_directory = HERE / "../sample-inputs/saltlake/gtfs"
+    depot_directory = HERE / "../FTA_Depot"
     output_directory = HERE / "../reports/saltlake"
     if not output_directory.exists():
         output_directory.mkdir(parents=True)
@@ -69,6 +70,7 @@ if __name__ == "__main__":
     start_time = time.time()
     routee_input_df = build_routee_features_with_osm(
         input_directory=input_directory,
+        depot_directory=depot_directory,
         date_incl="2023/08/02",
         routes_incl=["9"],
         add_road_grade=True,

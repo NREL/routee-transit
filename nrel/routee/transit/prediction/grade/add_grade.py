@@ -51,7 +51,7 @@ def run_gradeit_parallel(
         output_dir=CACHE_DIR,
     )
 
-    gradeit_partial = partial(add_grade_to_trip, tile_resolution=tile_resolution)
+    gradeit_partial = partial(safe_add_grade_to_trip, tile_resolution=tile_resolution)
     with mp.Pool(n_processes) as pool:
         trips_with_grade = pool.map(gradeit_partial, trip_dfs_list)
     return pd.concat(trips_with_grade)
@@ -124,3 +124,30 @@ def add_grade_to_trip(
     trip_link_df.loc[:, gradeit_cols] = gradeit_out.shift(-1)[:-1].loc[:, gradeit_cols]
 
     return trip_link_df
+
+#  **********---------------Add a wrapper around add_grade_to_trip to handle short trips safely, assign grade=0 to short trips---------------**********
+def safe_add_grade_to_trip(
+    trip_link_df: pd.DataFrame,
+    tile_resolution="ONE_THIRD_ARC_SECOND",
+    min_points: int = 5
+) -> pd.DataFrame:
+    """
+    Wrapper around add_grade_to_trip to handle short trips safely.
+    Assigns grade = 0 for trips with too few coordinates.
+    """
+    if len(trip_link_df) < min_points:
+        trip_link_df = trip_link_df.copy()
+        trip_link_df["grade"] = 0.0
+        return trip_link_df
+
+    try:
+        return add_grade_to_trip(trip_link_df, tile_resolution=tile_resolution)
+    except ValueError as e:
+        if "polyorder must be less than window_length" in str(e):
+            trip_link_df = trip_link_df.copy()
+            trip_link_df["grade"] = 0.0
+            return trip_link_df
+        else:
+            raise e
+#  **********---------------End of wrapper---------------**********
+
