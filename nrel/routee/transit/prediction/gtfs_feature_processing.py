@@ -18,6 +18,8 @@ from nrel.routee.transit.prediction.grade.add_grade import run_gradeit_parallel
 from nrel.routee.transit.prediction.grade.tile_resolution import TileResolution
 from nrel.routee.transit.prediction.create_depot_deadhead_trips import create_depot_deadhead_trips
 from nrel.routee.transit.prediction.create_depot_deadhead_stops import create_depot_deadhead_stops
+from nrel.routee.transit.prediction.create_betweenTrip_deadhead_trips import create_betweenTrip_deadhead_trips
+from nrel.routee.transit.prediction.create_betweenTrip_deadhead_stops import create_betweenTrip_deadhead_stops
 from nrel.routee.transit.prediction.add_depot_to_blocks import add_depot_to_blocks  
 from nrel.routee.transit.prediction.generate_deadhead_traces import add_deadhead_trips
 
@@ -453,13 +455,14 @@ def build_routee_features_with_osm(
         date_incl=date_incl,
         routes_incl=routes_incl,
     )
+    stop_times_df = feed.stop_times
 
     # **********---------------Add depot deadhead trips_df, shapes_df, and feed---------------**********
     # 1.1) Add depot deadhead trips, shapes, and update feed
     # Create depot deadhead trips
-    deadhead_trips_df = create_depot_deadhead_trips(feed)
+    deadhead_trips_df = create_depot_deadhead_trips(trips_df)
     # Create depot deadhead stop_times and stops
-    first_stops_gdf, last_stops_gdf = add_depot_to_blocks(feed, path_to_depots=depot_directory / "Transit_Depot.shp")
+    first_stops_gdf, last_stops_gdf = add_depot_to_blocks(trips_df, feed, path_to_depots=depot_directory / "Transit_Depot.shp")
     deadhead_stop_times_df, deadhead_stops_df = create_depot_deadhead_stops(first_stops_gdf, last_stops_gdf, deadhead_trips_df)
     # Generate deadhead trip shapes for trips from depot to first stop
     all_points = pd.concat([first_stops_gdf['geometry_origin'], first_stops_gdf['geometry_destination']])
@@ -504,13 +507,51 @@ def build_routee_features_with_osm(
     # Before updating, update deadhead_trips_df as some blocks may have the same first and last stop therefore won't shown in deadhead_shapes_df
     deadhead_trips_df = deadhead_trips_df[deadhead_trips_df['shape_id'].isin(deadhead_shapes_df['shape_id'].unique())]
     # Update trips_df, shapes_df, and feed
-    trips_df = pd.concat([trips_df, deadhead_trips_df], ignore_index=True)
+    trips_df_1 = pd.concat([trips_df, deadhead_trips_df], ignore_index=True)
     shapes_df = pd.concat([shapes_df, deadhead_shapes_df], ignore_index=True)
     feed.trips = pd.concat([feed.trips, deadhead_trips_df], ignore_index=True)
     feed.shapes = pd.concat([feed.shapes, deadhead_shapes_df], ignore_index=True)
     feed.stop_times = pd.concat([feed.stop_times, deadhead_stop_times_df], ignore_index=True)
     feed.stops = pd.concat([feed.stops, deadhead_stops_df], ignore_index=True)
     # **********---------------End of adding depot deadhead trips_df, shapes_df, and feed---------------**********
+
+    # **********---------------Add between trip deadhead trips_df, shapes_df, and feed---------------**********
+    # 1.2) Add between trip deadhead trips, shapes, and update feed
+    # Create between trip deadhead trips
+    betweenTrip_deadhead_trips_df = create_betweenTrip_deadhead_trips(trips_df,stop_times_df)
+    # Create between trip deadhead stop_times and stops
+    betweenTrip_deadhead_stop_times_df, betweenTrip_deadhead_stops_df, betweenTrip_ODs = create_betweenTrip_deadhead_stops(feed, betweenTrip_deadhead_trips_df)
+    # Generate deadhead trip shapes for trips from depot to first stop
+    all_points = pd.concat([betweenTrip_ODs['geometry_origin'], betweenTrip_ODs['geometry_destination']])
+    lons = all_points.apply(lambda p: p.x)
+    lats = all_points.apply(lambda p: p.y)
+    min_lon, max_lon = lons.min(), lons.max() # Bounding box
+    min_lat, max_lat = lats.min(), lats.max() # Bounding box
+    buffer_deg_lat = 0.018     # Roughly 2 km buffer in degrees
+    buffer_deg_lon = 0.022     # Roughly 2 km buffer in degrees
+    miny = min_lat - buffer_deg_lat
+    maxy = max_lat + buffer_deg_lat
+    minx = min_lon - buffer_deg_lon
+    maxx = max_lon + buffer_deg_lon
+    # Remove ODs with same origin and destination
+    betweenTrip_ODs = betweenTrip_ODs[betweenTrip_ODs.geometry_origin != betweenTrip_ODs.geometry_destination]
+    betweenTrip_deadhead_shapes_df = add_deadhead_trips(
+        df = betweenTrip_ODs,
+        n_processes = 1,
+        bbox = [minx, miny, maxx, maxy]
+        )
+    
+    # Update trips_df, shapes_df, and feed
+    # Before updating, update deadhead_trips_df as some blocks may have the same first and last stop therefore won't shown in deadhead_shapes_df
+    betweenTrip_deadhead_trips_df = betweenTrip_deadhead_trips_df[betweenTrip_deadhead_trips_df['shape_id'].isin(betweenTrip_deadhead_shapes_df['shape_id'].unique())]
+    # Update trips_df, shapes_df, and feed
+    trips_df_2 = pd.concat([trips_df_1, betweenTrip_deadhead_trips_df], ignore_index=True)
+    shapes_df = pd.concat([shapes_df, betweenTrip_deadhead_shapes_df], ignore_index=True)
+    feed.trips = pd.concat([feed.trips, betweenTrip_deadhead_trips_df], ignore_index=True)
+    feed.shapes = pd.concat([feed.shapes, betweenTrip_deadhead_shapes_df], ignore_index=True)
+    feed.stop_times = pd.concat([feed.stop_times, betweenTrip_deadhead_stop_times_df], ignore_index=True)
+    feed.stops = pd.concat([feed.stops, betweenTrip_deadhead_stops_df], ignore_index=True)
+    # **********---------------End of adding between trip deadhead trips_df, shapes_df, and feed---------------**********
 
     # 2) Refine shapes
     # Upsample all shapes
@@ -534,7 +575,7 @@ def build_routee_features_with_osm(
 
     # Extend trip data with stop and schedule data
     trips_df_ext = extend_trip_traces(
-        trips_df=trips_df,
+        trips_df=trips_df_2,
         matched_shapes_df=matched_shapes_df,
         feed=feed,
         add_stop_flag=False,

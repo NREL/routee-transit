@@ -1,17 +1,17 @@
 import pandas as pd
-def create_depot_deadhead_trips(feed: any) -> pd.DataFrame:
-    """Creat deadhead trips from and to depots for each block.
+def create_depot_deadhead_trips(trips_df: pd.DataFrame) -> pd.DataFrame:
+    """Create deadhead trips from and to depots for each block.
     Parameters
     ----------
-    feed : Any
-        GTFS feed object (e.g. result from read_in_gtfs).
+    trips_df : pd.DataFrame
+        trips_df of selected date route (e.g. result from read_in_gtfs).
 
     Returns
     -------
     pd.DataFrame: DataFrame with created deadhead trips.
     """
 
-    existing_trips_df = feed.trips
+    existing_trips_df = trips_df
     block_ids = existing_trips_df['block_id'].dropna().unique().tolist()
     # For each block id, create two deadhead trips: one from depot to first stop,
     # and one from last stop to depot.

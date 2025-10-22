@@ -72,7 +72,7 @@ if __name__ == "__main__":
         input_directory=input_directory,
         depot_directory=depot_directory,
         date_incl="2023/08/02",
-        routes_incl=["9"],
+        routes_incl=["205"],
         add_road_grade=True,
         n_processes=n_proc,
     )

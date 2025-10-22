@@ -2,15 +2,18 @@ from typing import Any
 from pathlib import Path
 import os
 
+import pandas as pd
 import geopandas as gpd
 from shapely.geometry import Point
 
 
-def add_depot_to_blocks(feed: Any, path_to_depots: str | Path) -> tuple[gpd.GeoDataFrame, gpd.GeoDataFrame]:
+def add_depot_to_blocks(trips_df: pd.DataFrame, feed: Any, path_to_depots: str | Path) -> tuple[gpd.GeoDataFrame, gpd.GeoDataFrame]:
     """Add origin/destination depot geometry to each block id.
 
     Parameters
     ----------
+    trips_df: pd.DataFrame
+        trips_df of selected date and route (result from read_in_gtfs).
     feed : Any
         GTFS feed object (e.g. result from read_in_gtfs).
     path_to_depots : str | Path
@@ -25,10 +28,10 @@ def add_depot_to_blocks(feed: Any, path_to_depots: str | Path) -> tuple[gpd.GeoD
     """
 
     # Process trips and stops dataframes in feed to get first and last stops of each block id
-    trips_df = feed.trips
+    trips_df = trips_df.copy()
     stop_times_df = feed.stop_times
     stops_df = feed.stops   
-    blocks_trips_stops = stop_times_df.merge(trips_df[['trip_id', 'block_id']], on='trip_id', how='left')
+    blocks_trips_stops = stop_times_df.merge(trips_df[['trip_id', 'block_id']], on='trip_id', how='right')
     blocks_trips_stops = blocks_trips_stops.merge(stops_df, on='stop_id', how='left')
 
     blocks_trips_stops = blocks_trips_stops.sort_values(by=['block_id', 'arrival_time'])

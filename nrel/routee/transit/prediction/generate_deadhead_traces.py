@@ -1,16 +1,14 @@
 import pandas as pd
 import geopandas as gpd
+import osmnx as ox
+import networkx as nx
+from shapely.geometry import LineString
+from shapely.ops import linemerge, unary_union
+import math
 # single-global-graph approach; per-row cached graphs removed
 import multiprocessing as mp
 from typing import Tuple, Any
 
-# optional imports for routing/map-matching kept at module level so we don't import per-row
-try:
-    import osmnx as ox_module
-    import networkx as nx_module
-except Exception:
-    ox_module = None
-    nx_module = None
 
 # Optionally hold a single pre-fetched graph for the whole study area.
 GLOBAL_GRAPH = None
@@ -43,9 +41,6 @@ def _process_deadhead_trip_row(args: Tuple[Any, ...]):
       - 'shape_pt_lat'
       - 'shape_dist_traveled' (cumulative km from route start)
     """
-    from shapely.geometry import LineString
-    from shapely.ops import linemerge, unary_union
-    import math
 
     def _haversine_km(lat1, lon1, lat2, lon2):
         R = 6371.0
@@ -68,7 +63,7 @@ def _process_deadhead_trip_row(args: Tuple[Any, ...]):
         road_buffer_m,
     ) = args
 
-    if ox_module is None or nx_module is None:
+    if ox is None or nx is None:
         return []
 
     G = GLOBAL_GRAPH
@@ -76,9 +71,9 @@ def _process_deadhead_trip_row(args: Tuple[Any, ...]):
         return []
 
     try:
-        src = ox_module.nearest_nodes(G, start_x, start_y)
-        dst = ox_module.nearest_nodes(G, end_x, end_y)
-        route_nodes = nx_module.shortest_path(G, src, dst, weight='length')
+        src = ox.nearest_nodes(G, start_x, start_y)
+        dst = ox.nearest_nodes(G, end_x, end_y)
+        route_nodes = nx.shortest_path(G, src, dst, weight='length')
 
         edge_geoms = []
         for u, v in zip(route_nodes[:-1], route_nodes[1:]):
@@ -168,15 +163,13 @@ def add_deadhead_trips(
     global GLOBAL_GRAPH
     if bbox is None:
         raise ValueError('bbox is required: provide a study-area bounding box (minx, miny, maxx, maxy)')
-    if ox_module is None:
+    if ox is None:
         raise ImportError('osmnx is required to fetch a global bbox graph')
     # bbox expected as (minx, miny, maxx, maxy)
-    try:
-        minx, miny, maxx, maxy = bbox
-    except Exception:
-        raise ValueError('bbox must be a 4-tuple (minx, miny, maxx, maxy)')
+    if len(bbox) != 4:
+        raise ValueError("bbox must be a 4-tuple (minx, miny, maxx, maxy)")
     # ox.graph_from_bbox signature: (north, south, east, west)
-    GLOBAL_GRAPH = ox_module.graph_from_bbox(bbox, network_type='drive')
+    GLOBAL_GRAPH = ox.graph_from_bbox(bbox, network_type='drive')
     
     task_args = []
     for idx, r in df.iterrows():
