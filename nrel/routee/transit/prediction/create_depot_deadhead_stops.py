@@ -5,7 +5,7 @@ from geopy.distance import geodesic
 
 def create_depot_deadhead_stops(first_stops_gdf: gpd.GeoDataFrame, 
                                     last_stops_gdf: gpd.GeoDataFrame,
-                                    deadhead_trips: pd.DataFrame) -> pd.DataFrame:
+                                    deadhead_trips: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Creat stop_times and stops for deadhead trips from and to depots for each block to generate the feed object for depot deadhead trips.
     Parameters
     ----------

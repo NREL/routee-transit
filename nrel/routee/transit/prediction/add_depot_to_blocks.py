@@ -7,7 +7,7 @@ import geopandas as gpd
 from shapely.geometry import Point
 
 
-def add_depot_to_blocks(trips_df: pd.DataFrame, feed: Any, path_to_depots: str | Path) -> tuple[gpd.GeoDataFrame, gpd.GeoDataFrame]:
+def add_depot_to_blocks(trips_df: pd.DataFrame, feed: Any, path_to_depots: str | Path) -> tuple[Any, Any]:
     """Add origin/destination depot geometry to each block id.
 
     Parameters

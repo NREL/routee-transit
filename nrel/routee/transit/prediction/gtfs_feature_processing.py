@@ -462,7 +462,7 @@ def build_routee_features_with_osm(
     # Create depot deadhead trips
     deadhead_trips_df = create_depot_deadhead_trips(trips_df)
     # Create depot deadhead stop_times and stops
-    first_stops_gdf, last_stops_gdf = add_depot_to_blocks(trips_df, feed, path_to_depots=depot_directory / "Transit_Depot.shp")
+    first_stops_gdf, last_stops_gdf = add_depot_to_blocks(trips_df, feed, path_to_depots=Path(depot_directory) / "Transit_Depot.shp")
     deadhead_stop_times_df, deadhead_stops_df = create_depot_deadhead_stops(first_stops_gdf, last_stops_gdf, deadhead_trips_df)
     # Generate deadhead trip shapes for trips from depot to first stop
     all_points = pd.concat([first_stops_gdf['geometry_origin'], first_stops_gdf['geometry_destination']])
@@ -479,7 +479,7 @@ def build_routee_features_with_osm(
     from_depot_deadhead_shapes_df = add_deadhead_trips(
         df = first_stops_gdf,
         n_processes = 1,
-        bbox = [minx, miny, maxx, maxy]
+        bbox = tuple([minx, miny, maxx, maxy])
         )
     from_depot_deadhead_shapes_df['shape_id'] = from_depot_deadhead_shapes_df['shape_id'].apply(lambda x: 'from_depot_' + x)
     # Generate deadhead trip shapes for trips from last stop to depot
@@ -497,7 +497,7 @@ def build_routee_features_with_osm(
     to_depot_deadhead_shapes_df = add_deadhead_trips(
         df = last_stops_gdf,
         n_processes = 1,
-        bbox = [minx, miny, maxx, maxy]
+        bbox = tuple([minx, miny, maxx, maxy])
         )
     to_depot_deadhead_shapes_df['shape_id'] = to_depot_deadhead_shapes_df['shape_id'].apply(lambda x: 'to_depot_' + x)
     # Combine all deadhead shapes
@@ -538,7 +538,7 @@ def build_routee_features_with_osm(
     betweenTrip_deadhead_shapes_df = add_deadhead_trips(
         df = betweenTrip_ODs,
         n_processes = 1,
-        bbox = [minx, miny, maxx, maxy]
+        bbox = tuple([minx, miny, maxx, maxy])
         )
     
     # Update trips_df, shapes_df, and feed

@@ -128,7 +128,7 @@ def add_grade_to_trip(
 #  **********---------------Add a wrapper around add_grade_to_trip to handle short trips safely, assign grade=0 to short trips---------------**********
 def safe_add_grade_to_trip(
     trip_link_df: pd.DataFrame,
-    tile_resolution="ONE_THIRD_ARC_SECOND",
+    tile_resolution: TileResolution = TileResolution.ONE_THIRD_ARC_SECOND,
     min_points: int = 5
 ) -> pd.DataFrame:
     """

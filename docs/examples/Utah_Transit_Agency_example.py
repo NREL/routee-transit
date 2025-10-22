@@ -28,6 +28,7 @@ os.environ["PROJ_DEBUG"] = "0"
 n_proc = mp.cpu_count()
 # Specify input data location
 input_directory = repo_root() / "sample-inputs/saltlake/gtfs"
+depot_directory = repo_root() / "FTA_Depot"
 output_directory = repo_root() / "reports/saltlake"
 if not output_directory.exists():
     output_directory.mkdir(parents=True)
@@ -42,6 +43,7 @@ if not output_directory.exists():
 """
 routee_input_df = build_routee_features_with_osm(
     input_directory=input_directory,
+    depot_directory = depot_directory,
     date_incl="2023/08/02",
     routes_incl=["806", "807"],  # a few routes that each make a small number of trips
     add_road_grade=True,

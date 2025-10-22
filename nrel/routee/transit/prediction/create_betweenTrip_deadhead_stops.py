@@ -1,9 +1,10 @@
+from typing import Any
 import pandas as pd
 import numpy as np
 import geopandas as gpd
 from geopy.distance import geodesic
 
-def create_betweenTrip_deadhead_stops(feed, deadhead_trips: pd.DataFrame) -> pd.DataFrame:
+def create_betweenTrip_deadhead_stops(feed: Any, deadhead_trips: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """Create stop_times and stops for deadhead trips between consecutive trips to generate the feed object for between trip deadhead trips.
     Parameters
     ----------

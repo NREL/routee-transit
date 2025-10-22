@@ -19,7 +19,7 @@ GLOBAL_GRAPH = None
 # `add_deadhead_trips`) and all routing workers use that graph.
 
 
-def _parallel_map(func, iterable, n_processes: int | None, chunksize: int = 8):
+def _parallel_map(func: Any, iterable: Any, n_processes: int | None, chunksize: int = 8) -> list[Any]:
     """Simple wrapper to run func over iterable using multiprocessing when requested."""
     if not n_processes or n_processes <= 1:
         return [func(x) for x in iterable]
@@ -29,7 +29,7 @@ def _parallel_map(func, iterable, n_processes: int | None, chunksize: int = 8):
             results.append(item)
     return results
 
-def _process_deadhead_trip_row(args: Tuple[Any, ...]):
+def _process_deadhead_trip_row(args: Tuple[Any, ...]) -> list[Any]:
     """Worker that computes shortest-path and returns per-point shape rows.
 
     args: (idx, start_x, start_y, end_x, end_y, block_id, network_type, road_buffer_m)
@@ -42,7 +42,7 @@ def _process_deadhead_trip_row(args: Tuple[Any, ...]):
       - 'shape_dist_traveled' (cumulative km from route start)
     """
 
-    def _haversine_km(lat1, lon1, lat2, lon2):
+    def _haversine_km(lat1: Any, lon1: Any, lat2: Any, lon2: Any) -> float:
         R = 6371.0
         phi1 = math.radians(lat1)
         phi2 = math.radians(lat2)
