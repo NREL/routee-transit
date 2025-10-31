@@ -80,7 +80,7 @@ class GtfsExtractor:
     def get_gtfs_by_agency(self, agency: str, state: str, municipality: str) -> str:
         query = f"?&status=active&subdivision_name={state}&municipality={municipality}&q={agency}%"
 
-        results = self.query_mobility_db(query, path="gtfs_feeds")
+        results = self.query_mobility_db(path="gtfs_feeds", query=query)
         last_path = ""
 
         if len(results) > 1:
