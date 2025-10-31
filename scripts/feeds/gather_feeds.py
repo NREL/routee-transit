@@ -18,10 +18,11 @@ if __name__ == "__main__":
         help="Root directory for storing GTFS datasets and feed info.",
     )
     parser.add_argument(
-        "--state",
+        "--states",
         type=str,
-        default="",
-        help="State from which to pull feeds (full name)",
+        nargs="*",
+        default=[],
+        help="State(s) from which to pull feeds (full name). Provide multiple states separated by spaces. Leave empty for all states.",
     )
     args = parser.parse_args()
 
@@ -29,15 +30,25 @@ if __name__ == "__main__":
     extractor = GtfsExtractor()
 
     query = "?&status=active&country_code=US"
-    if args.state:
-        query += f"&subdivision_name={args.state}"
 
-    response = extractor.query_mobility_db(
-        path="gtfs_feeds",
-        query=query,
-    )
-
-    active_feeds = [r for r in response if r["status"] == "active"]
+    # Gather feeds from specified states or all states
+    active_feeds = []
+    if args.states:
+        # Query each state separately and combine results
+        for state in args.states:
+            state_query = query + f"&subdivision_name={state}"
+            response = extractor.query_mobility_db(
+                path="gtfs_feeds",
+                query=state_query,
+            )
+            active_feeds.extend([r for r in response if r["status"] == "active"])
+    else:
+        # No states specified, get all US feeds
+        response = extractor.query_mobility_db(
+            path="gtfs_feeds",
+            query=query,
+        )
+        active_feeds = [r for r in response if r["status"] == "active"]
 
     feed_info = list()
     for f in active_feeds:
