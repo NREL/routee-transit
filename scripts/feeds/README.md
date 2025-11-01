@@ -11,6 +11,14 @@ The `gather_feeds.py` script queries the [Mobility Database](https://mobilitydat
 
 The datasets that are saved can then be subjected to the full RouteE-Transit energy prediction pipeline via separate procedures. Note that depending on the geographic scope that the script is run for, the amount of data downloaded could be quite large, since a single static GTFS dataset can often be a few hundred MB for a larger system.
 
+## Prerequisites
+
+Before running the script, you must obtain a Mobility Database refresh token from [https://mobilitydatabase.org/](https://mobilitydatabase.org/) and add it to your `.env` file:
+
+```bash
+MOBILITY_DATA_REFRESH_TOKEN=your_token_here
+```
+
 ## Output
 
 The script creates the following directory structure at `db_root`:
@@ -27,17 +35,17 @@ db_root/
 
 ### Gather feeds for a single state
 ```bash
-python scripts/feeds/gather_feeds.py --db_root /projects/teta/routee-transit-db --states Washington
+python scripts/feeds/gather_feeds.py --db_root routee_transit_db --states Washington
 ```
 
 ### Gather feeds for multiple states
 ```bash
-python scripts/feeds/gather_feeds.py --db_root /projects/teta/routee-transit-db --states Washington Oregon California
+python scripts/feeds/gather_feeds.py --db_root routee_transit_db --states Washington Oregon California
 ```
 
 ### Gather feeds for all US states
 ```bash
-python scripts/feeds/gather_feeds.py --db_root /projects/teta/routee-transit-db
+python scripts/feeds/gather_feeds.py --db_root routee_transit_db
 ```
 
 ## Arguments
@@ -75,3 +83,13 @@ Contains one row per dataset with columns:
 - `hosted_url`: URL to download the dataset
 - `includes_bus_trips`: Whether the dataset contains bus routes
 - `includes_all_bus_shapes`: Whether all bus trips have associated shapes
+
+## Visualizing Downloaded Feeds
+
+After gathering feeds, you can create an interactive HTML map showing the geographic locations of all downloaded feeds:
+
+```bash
+python scripts/feeds/map_feeds.py routee_transit_db feeds_map.html
+```
+
+This will generate `feeds_map.html` in the current directory.
