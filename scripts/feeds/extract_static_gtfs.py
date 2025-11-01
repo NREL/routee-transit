@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 
 
 class GtfsExtractor:
-    def __init__(self):
+    def __init__(self) -> None:
         load_dotenv()
         try:
             self.REFRESH_TOKEN = os.environ["MOBILITY_DATA_REFRESH_TOKEN"]
@@ -17,7 +17,7 @@ class GtfsExtractor:
                 "If you do not have a Mobility Database refresh token, obtain one "
                 "from https://mobilitydatabase.org/"
             )
-        self.api_key = None
+        self.api_key: str | None = None
 
     # Use the refresh token to get a new API key
     def get_api_key(self) -> str:
@@ -37,7 +37,7 @@ class GtfsExtractor:
         )
         response.raise_for_status()
         print("Refreshing api key...  ", response.status_code)
-        api_key = json.loads(response.text)["access_token"]
+        api_key = str(json.loads(response.text)["access_token"])
         return api_key
 
     # Checks for 200 from Mobility DB
@@ -48,7 +48,9 @@ class GtfsExtractor:
         )
         return response.status_code
 
-    def query_mobility_db(self, path: str, query: str) -> List[Dict[str, Any]]:
+    def query_mobility_db(
+        self, path: str, query: str
+    ) -> List[Dict[str, Any]] | Dict[str, Any]:
         """Make a request to the Mobility Database API with the given query
 
         Args:
@@ -68,7 +70,25 @@ class GtfsExtractor:
         }
 
         response = self.make_api_request(query_url, headers)
-        return json.loads(response.text)
+        result: List[Dict[str, Any]] | Dict[str, Any] = json.loads(response.text)
+        return result
+
+    def query_mdb_feeds(self, query: str = "") -> List[Dict[str, Any]]:
+        """Query Mobility Database feeds endpoint for feed information"""
+        result = self.query_mobility_db(
+            path="gtfs_feeds",
+            query=query,
+        )
+        if not isinstance(result, list):
+            raise TypeError(f"Expected list from feeds endpoint, got {type(result)}")
+        return result
+
+    def query_mdb_dataset(self, dataset_id: str, query: str = "") -> Dict[str, Any]:
+        "Query Mobility Database datasets endpoint for dataset details"
+        result = self.query_mobility_db(path=f"datasets/gtfs/{dataset_id}", query=query)
+        if not isinstance(result, dict):
+            raise TypeError(f"Expected dict from dataset endpoint, got {type(result)}")
+        return result
 
     def make_api_request(
         self, url: str, headers: Dict[str, str], timeout: int = 15

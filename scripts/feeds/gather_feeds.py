@@ -37,17 +37,11 @@ if __name__ == "__main__":
         # Query each state separately and combine results
         for state in args.states:
             state_query = query + f"&subdivision_name={state}"
-            response = extractor.query_mobility_db(
-                path="gtfs_feeds",
-                query=state_query,
-            )
+            response = extractor.query_mdb_feeds(query=state_query)
             active_feeds.extend([r for r in response if r["status"] == "active"])
     else:
         # No states specified, get all US feeds
-        response = extractor.query_mobility_db(
-            path="gtfs_feeds",
-            query=query,
-        )
+        response = extractor.query_mdb_feeds(query=query)
         active_feeds = [r for r in response if r["status"] == "active"]
 
     feed_info = list()
@@ -80,9 +74,7 @@ if __name__ == "__main__":
     dataset_info = list()
     for d_id in feeds_df["latest_dataset_id"].tolist()[:n_datasets]:
         # Grab the dataset
-        dataset_response = extractor.query_mobility_db(
-            path=f"datasets/gtfs/{d_id}", query=""
-        )
+        dataset_response = extractor.query_mdb_dataset(dataset_id=d_id)
         val_report = dataset_response["validation_report"]
         this_dataset_summary = {
             "id": d_id,
