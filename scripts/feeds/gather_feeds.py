@@ -1,3 +1,4 @@
+import argparse
 import io
 import os
 import zipfile
@@ -7,7 +8,8 @@ import pandas as pd
 import requests
 
 from scripts.feeds.extract_static_gtfs import GtfsExtractor
-import argparse
+
+GTFS_ROUTE_TYPE_BUS = 3
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Gather GTFS feeds and datasets.")
@@ -105,7 +107,9 @@ if __name__ == "__main__":
             routes = pd.read_csv(extract_path / "routes.txt")
             trips = pd.read_csv(extract_path / "trips.txt")
 
-            bus_routes = routes[routes["route_type"] == 3]["route_id"].tolist()
+            bus_routes = routes[routes["route_type"] == GTFS_ROUTE_TYPE_BUS][
+                "route_id"
+            ].tolist()
             bus_trips = trips[trips["route_id"].isin(bus_routes)]
 
             if len(bus_trips) >= 1:
