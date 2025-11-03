@@ -68,7 +68,7 @@ if __name__ == "__main__":
         output_directory.mkdir(parents=True)
 
     start_time = time.time()
-    routee_input_df = build_routee_features_with_osm(
+    routee_input_df, temp_energy_df = build_routee_features_with_osm(
         input_directory=input_directory,
         depot_directory=depot_directory,
         date_incl="2023/08/02",
@@ -94,6 +94,9 @@ if __name__ == "__main__":
 
     # Summarize predictions by trip
     energy_by_trip = aggregate_results_by_trip(routee_results, routee_vehicle_model)
+
+    # Add HVAC and BTMS energy to trip
+    energy_by_trip = energy_by_trip.merge(temp_energy_df, on="trip_id", how="left")
 
     energy_by_trip.to_csv(output_directory / "trip_energy_predictions.csv")
     logger.info(f"Finished predictions in {time.time() - start_time:.2f} s")
