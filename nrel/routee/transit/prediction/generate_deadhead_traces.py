@@ -5,6 +5,7 @@ import networkx as nx
 from shapely.geometry import LineString
 from shapely.ops import linemerge, unary_union
 import math
+
 # single-global-graph approach; per-row cached graphs removed
 import multiprocessing as mp
 from typing import Tuple, Any
@@ -19,7 +20,9 @@ GLOBAL_GRAPH = None
 # `add_deadhead_trips`) and all routing workers use that graph.
 
 
-def _parallel_map(func: Any, iterable: Any, n_processes: int | None, chunksize: int = 8) -> list[Any]:
+def _parallel_map(
+    func: Any, iterable: Any, n_processes: int | None, chunksize: int = 8
+) -> list[Any]:
     """Simple wrapper to run func over iterable using multiprocessing when requested."""
     if not n_processes or n_processes <= 1:
         return [func(x) for x in iterable]
@@ -28,6 +31,7 @@ def _parallel_map(func: Any, iterable: Any, n_processes: int | None, chunksize: 
         for item in pool.imap(func, iterable, chunksize=chunksize):
             results.append(item)
     return results
+
 
 def _process_deadhead_trip_row(args: Tuple[Any, ...]) -> list[Any]:
     """Worker that computes shortest-path and returns per-point shape rows.
@@ -48,7 +52,10 @@ def _process_deadhead_trip_row(args: Tuple[Any, ...]) -> list[Any]:
         phi2 = math.radians(lat2)
         dphi = math.radians(lat2 - lat1)
         dlambda = math.radians(lon2 - lon1)
-        a = math.sin(dphi / 2.0) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda / 2.0) ** 2
+        a = (
+            math.sin(dphi / 2.0) ** 2
+            + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda / 2.0) ** 2
+        )
         c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
         return R * c
 
@@ -73,7 +80,7 @@ def _process_deadhead_trip_row(args: Tuple[Any, ...]) -> list[Any]:
     try:
         src = ox.nearest_nodes(G, start_x, start_y)
         dst = ox.nearest_nodes(G, end_x, end_y)
-        route_nodes = nx.shortest_path(G, src, dst, weight='length')
+        route_nodes = nx.shortest_path(G, src, dst, weight="length")
 
         edge_geoms = []
         for u, v in zip(route_nodes[:-1], route_nodes[1:]):
@@ -82,36 +89,41 @@ def _process_deadhead_trip_row(args: Tuple[Any, ...]) -> list[Any]:
                 continue
             key = list(data.keys())[0]
             attr = data[key]
-            geom = attr.get('geometry')
+            geom = attr.get("geometry")
             if geom is None:
-                ux = G.nodes[u].get('x')
-                uy = G.nodes[u].get('y')
-                vx = G.nodes[v].get('x')
-                vy = G.nodes[v].get('y')
+                ux = G.nodes[u].get("x")
+                uy = G.nodes[u].get("y")
+                vx = G.nodes[v].get("x")
+                vy = G.nodes[v].get("y")
                 geom = LineString([(ux, uy), (vx, vy)])
             edge_geoms.append(geom)
 
-        if not edge_geoms: # Return a link from start to end if no route found
+        if not edge_geoms:  # Return a link from start to end if no route found
             # return []
-            return [{
-                'shape_id': block_id,
-                'shape_pt_sequence': 1,
-                'shape_pt_lon': float(start_x),
-                'shape_pt_lat': float(start_y),
-                'shape_dist_traveled': 0.0,
-            }, {
-                'shape_id': block_id,
-                'shape_pt_sequence': 2,
-                'shape_pt_lon': float(end_x),
-                'shape_pt_lat': float(end_y),
-                'shape_dist_traveled': _haversine_km(start_y, start_x, end_y, end_x),
-            }]
+            return [
+                {
+                    "shape_id": block_id,
+                    "shape_pt_sequence": 1,
+                    "shape_pt_lon": float(start_x),
+                    "shape_pt_lat": float(start_y),
+                    "shape_dist_traveled": 0.0,
+                },
+                {
+                    "shape_id": block_id,
+                    "shape_pt_sequence": 2,
+                    "shape_pt_lon": float(end_x),
+                    "shape_pt_lat": float(end_y),
+                    "shape_dist_traveled": _haversine_km(
+                        start_y, start_x, end_y, end_x
+                    ),
+                },
+            ]
 
         try:
             merged = linemerge(edge_geoms)
         except Exception:
             merged = unary_union(edge_geoms)
-        if getattr(merged, 'geom_type', '') == 'MultiLineString':
+        if getattr(merged, "geom_type", "") == "MultiLineString":
             coords = []
             for part in merged:
                 coords.extend(list(part.coords))
@@ -128,13 +140,15 @@ def _process_deadhead_trip_row(args: Tuple[Any, ...]) -> list[Any]:
                 cum_km += seg_km
             else:
                 cum_km = 0.0
-            rows.append({
-                'shape_id': block_id,
-                'shape_pt_sequence': int(seq),
-                'shape_pt_lon': float(lon),
-                'shape_pt_lat': float(lat),
-                'shape_dist_traveled': float(cum_km),
-            })
+            rows.append(
+                {
+                    "shape_id": block_id,
+                    "shape_pt_sequence": int(seq),
+                    "shape_pt_lon": float(lon),
+                    "shape_pt_lat": float(lat),
+                    "shape_dist_traveled": float(cum_km),
+                }
+            )
             prev_lat, prev_lon = lat, lon
 
         return rows
@@ -144,13 +158,13 @@ def _process_deadhead_trip_row(args: Tuple[Any, ...]) -> list[Any]:
 
 def add_deadhead_trips(
     df: gpd.GeoDataFrame,
-    o_col: str = 'geometry_origin',
-    d_col: str = 'geometry_destination',
-    network_type: str = 'drive',
+    o_col: str = "geometry_origin",
+    d_col: str = "geometry_destination",
+    network_type: str = "drive",
     road_buffer_m: int = 2000,
     n_processes: int | None = None,
     bbox: tuple[float, float, float, float] | None = None,
-    ) -> pd.DataFrame:
+) -> pd.DataFrame:
     """Compute deadhead route shapes between origin and destination.
 
     For each row in `df` this computes a shortest-path on the OSM network between the
@@ -162,31 +176,35 @@ def add_deadhead_trips(
     # Require bbox: this function uses a single study-area graph for all routing.
     global GLOBAL_GRAPH
     if bbox is None:
-        raise ValueError('bbox is required: provide a study-area bounding box (minx, miny, maxx, maxy)')
+        raise ValueError(
+            "bbox is required: provide a study-area bounding box (minx, miny, maxx, maxy)"
+        )
     if ox is None:
-        raise ImportError('osmnx is required to fetch a global bbox graph')
+        raise ImportError("osmnx is required to fetch a global bbox graph")
     # bbox expected as (minx, miny, maxx, maxy)
     if len(bbox) != 4:
         raise ValueError("bbox must be a 4-tuple (minx, miny, maxx, maxy)")
     # ox.graph_from_bbox signature: (north, south, east, west)
-    GLOBAL_GRAPH = ox.graph_from_bbox(bbox, network_type='drive')
-    
+    GLOBAL_GRAPH = ox.graph_from_bbox(bbox, network_type="drive")
+
     task_args = []
     for idx, r in df.iterrows():
         origin = r.get(o_col)
         destination = r.get(d_col)
         if origin is None or destination is None:
             continue
-        task_args.append((
-            idx,
-            float(origin.x),
-            float(origin.y),
-            float(destination.x),
-            float(destination.y),
-            r.get('block_id') if 'block_id' in r else None,
-            network_type,
-            road_buffer_m,
-        ))
+        task_args.append(
+            (
+                idx,
+                float(origin.x),
+                float(origin.y),
+                float(destination.x),
+                float(destination.y),
+                r.get("block_id") if "block_id" in r else None,
+                network_type,
+                road_buffer_m,
+            )
+        )
 
     results = _parallel_map(_process_deadhead_trip_row, task_args, n_processes)
 
@@ -200,8 +218,13 @@ def add_deadhead_trips(
 
     out_df = pd.DataFrame(
         shape_rows,
-        columns=['shape_id', 'shape_pt_sequence', 'shape_pt_lon', 'shape_pt_lat', 'shape_dist_traveled'],
+        columns=[
+            "shape_id",
+            "shape_pt_sequence",
+            "shape_pt_lon",
+            "shape_pt_lat",
+            "shape_dist_traveled",
+        ],
     )
-    
-    return out_df
 
+    return out_df
