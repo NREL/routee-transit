@@ -32,6 +32,20 @@ def _parallel_map(
             results.append(item)
     return results
 
+def _haversine_km(lat1: Any, lon1: Any, lat2: Any, lon2: Any) -> float:
+    """Get the haversine distance between two points in kilometers."""
+    R = 6371.0
+    phi1 = math.radians(lat1)
+    phi2 = math.radians(lat2)
+    dphi = math.radians(lat2 - lat1)
+    dlambda = math.radians(lon2 - lon1)
+    a = (
+        math.sin(dphi / 2.0) ** 2
+        + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda / 2.0) ** 2
+    )
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+    return R * c
+
 
 def _process_deadhead_trip_row(args: Tuple[Any, ...]) -> list[Any]:
     """Worker that computes shortest-path and returns per-point shape rows.
@@ -45,29 +59,12 @@ def _process_deadhead_trip_row(args: Tuple[Any, ...]) -> list[Any]:
       - 'shape_pt_lat'
       - 'shape_dist_traveled' (cumulative km from route start)
     """
-
-    def _haversine_km(lat1: Any, lon1: Any, lat2: Any, lon2: Any) -> float:
-        R = 6371.0
-        phi1 = math.radians(lat1)
-        phi2 = math.radians(lat2)
-        dphi = math.radians(lat2 - lat1)
-        dlambda = math.radians(lon2 - lon1)
-        a = (
-            math.sin(dphi / 2.0) ** 2
-            + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda / 2.0) ** 2
-        )
-        c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-        return R * c
-
     (
-        idx,
         start_x,
         start_y,
         end_x,
         end_y,
         block_id,
-        network_type,
-        road_buffer_m,
     ) = args
 
     if ox is None or nx is None:
@@ -160,8 +157,6 @@ def add_deadhead_trips(
     df: gpd.GeoDataFrame,
     o_col: str = "geometry_origin",
     d_col: str = "geometry_destination",
-    network_type: str = "drive",
-    road_buffer_m: int = 2000,
     n_processes: int | None = None,
 ) -> pd.DataFrame:
     """Compute deadhead route shapes between origin and destination.
@@ -195,21 +190,18 @@ def add_deadhead_trips(
     GLOBAL_GRAPH = ox.graph_from_bbox(bbox, network_type="drive")
 
     task_args = []
-    for idx, r in df.iterrows():
+    for _, r in df.iterrows():
         origin = r.get(o_col)
         destination = r.get(d_col)
         if origin is None or destination is None:
             continue
         task_args.append(
             (
-                idx,
                 float(origin.x),
                 float(origin.y),
                 float(destination.x),
                 float(destination.y),
                 r.get("block_id") if "block_id" in r else None,
-                network_type,
-                road_buffer_m,
             )
         )
 
