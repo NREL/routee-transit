@@ -16,7 +16,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--db_root",
         type=str,
-        default="/reports/mdb",
+        default="reports/mdb",
         help="Root directory for storing GTFS datasets and feed info.",
     )
     parser.add_argument(
