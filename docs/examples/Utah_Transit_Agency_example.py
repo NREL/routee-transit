@@ -8,6 +8,7 @@ import multiprocessing as mp
 import os
 
 from nrel.routee.transit import (
+    add_HVAC_energy,
     aggregate_results_by_trip,
     build_routee_features_with_osm,
     predict_for_all_trips,
@@ -41,7 +42,7 @@ if not output_directory.exists():
 - Uses NREL's `mappymatch` package to match each shape to a set of OpenStreetMap road links.
 - Uses NREL's `gradeit` package to add estimated average grade to each road link. USGS elevation tiles are downloaded and cached if needed.
 """
-routee_input_df, temp_energy_df = build_routee_features_with_osm(
+routee_input_df, trips_df, feed = build_routee_features_with_osm(
     input_directory=input_directory,
     depot_directory=depot_directory,
     date_incl="2023/08/02",
@@ -76,6 +77,7 @@ We can aggregate over trip IDs to get the total energy estimated per trip.
 energy_by_trip = aggregate_results_by_trip(routee_results, routee_vehicle_model)
 
 # Merge HVAC energy
+temp_energy_df = add_HVAC_energy(feed, trips_df)
 energy_by_trip = energy_by_trip.merge(temp_energy_df, on="trip_id", how="left")
 energy_by_trip["kwh_per_mi_winter"] = (
     energy_by_trip["kWhs"] + energy_by_trip["Winter_HVAC_Energy"]

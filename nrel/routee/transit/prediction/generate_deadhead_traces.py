@@ -64,6 +64,10 @@ def _process_deadhead_trip_row(args: Tuple[Any, ...]) -> list[Any]:
     ) = args
 
     G = GLOBAL_GRAPH
+    if G is None:
+        raise ValueError(
+            "Global OSMNX graph is not available. Unable to process deadhead trip."
+        )
 
     src = ox.nearest_nodes(G, start_x, start_y)
     dst = ox.nearest_nodes(G, end_x, end_y)
