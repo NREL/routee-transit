@@ -12,7 +12,6 @@ dependencies = [
     "geopandas>=1.1.1,<2",
     "boto3",
     "requests>=2.32.5,<3",
-    "python-dotenv>=1.2.1,<2",
 ]
 
 [project.optional-dependencies]
@@ -27,6 +26,7 @@ dev = [
     "pandas-stubs>=2.0,<3.0",
     "types-requests",
     "folium>=0.19",
+    "python-dotenv>=1.2.1,<2",
 ]
 
 [build-system]
