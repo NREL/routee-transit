@@ -40,7 +40,9 @@ def predict_trip_energy(
     t_df["miles"] = MI_PER_KM * t_df["kilometers"]
     t_df["gpsspeed"] = t_df["miles"] / (t_df["travel_time_minutes"] / 60)
 
-    return routee_model.predict(links_df=t_df)
+    # Perform prediction
+    result = routee_model.predict(links_df=t_df)
+    return result.copy()
 
 
 def predict_for_all_trips(

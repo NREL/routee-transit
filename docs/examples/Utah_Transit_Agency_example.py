@@ -8,9 +8,10 @@ import multiprocessing as mp
 import os
 
 from nrel.routee.transit import (
+    add_HVAC_energy,
+    aggregate_results_by_trip,
     build_routee_features_with_osm,
     predict_for_all_trips,
-    aggregate_results_by_trip,
     repo_root,
 )
 
@@ -28,6 +29,7 @@ os.environ["PROJ_DEBUG"] = "0"
 n_proc = mp.cpu_count()
 # Specify input data location
 input_directory = repo_root() / "sample-inputs/saltlake/gtfs"
+depot_directory = repo_root() / "FTA_Depot"
 output_directory = repo_root() / "reports/saltlake"
 if not output_directory.exists():
     output_directory.mkdir(parents=True)
@@ -40,15 +42,17 @@ if not output_directory.exists():
 - Uses NREL's `mappymatch` package to match each shape to a set of OpenStreetMap road links.
 - Uses NREL's `gradeit` package to add estimated average grade to each road link. USGS elevation tiles are downloaded and cached if needed.
 """
-routee_input_df = build_routee_features_with_osm(
+routee_input_df, trips_df, feed = build_routee_features_with_osm(
     input_directory=input_directory,
+    depot_directory=depot_directory,
     date_incl="2023/08/02",
     routes_incl=["806", "807"],  # a few routes that each make a small number of trips
     add_road_grade=True,
     n_processes=n_proc,
 )
 """
-The output of `build_routee_features_with_osm()` is a DataFrame where each row represents travel on a single road network edge during a single bus trip. It includes the features needed to make energy predictions with RouteE, such as the travel time reported by OpenStreetMap (`travel_time`), the distance (`kilometers`), and the estimated road grade as a decimal value (`grade`).
+The first output of `build_routee_features_with_osm()` is a DataFrame where each row represents travel on a single road network edge during a single bus trip. It includes the features needed to make energy predictions with RouteE, such as the travel time reported by OpenStreetMap (`travel_time`), the distance (`kilometers`), and the estimated road grade as a decimal value (`grade`).
+The second output of `build_routee_features_with_osm()` is a DataFrame that stores HVAC and BTMS energy consumption for each trip_id.
 """
 routee_input_df.head()
 """
@@ -71,7 +75,17 @@ routee_results.head()
 We can aggregate over trip IDs to get the total energy estimated per trip.
 """
 energy_by_trip = aggregate_results_by_trip(routee_results, routee_vehicle_model)
-energy_by_trip["kwh_per_mi"] = energy_by_trip["kWhs"] / energy_by_trip["miles"]
+
+# Merge HVAC energy
+temp_energy_df = add_HVAC_energy(feed, trips_df)
+energy_by_trip = energy_by_trip.merge(temp_energy_df, on="trip_id", how="left")
+energy_by_trip["kwh_per_mi_winter"] = (
+    energy_by_trip["kWhs"] + energy_by_trip["Winter_HVAC_Energy"]
+) / energy_by_trip["miles"]
+energy_by_trip["kwh_per_mi_summer"] = (
+    energy_by_trip["kWhs"] + energy_by_trip["Summer_HVAC_Energy"]
+) / energy_by_trip["miles"]
+
 # Check the results for some random trips
 energy_by_trip
 """

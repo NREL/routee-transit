@@ -14,6 +14,18 @@ from mappymatch.constructs.trace import Trace
 from mappymatch.maps.nx.nx_map import NetworkType, NxMap
 from mappymatch.matchers.lcss.lcss import LCSSMatcher
 
+from nrel.routee.transit.prediction.between_trip_deadhead import (
+    create_between_trip_deadhead_stops,
+    create_between_trip_deadhead_trips,
+)
+from nrel.routee.transit.prediction.depot_deadhead import (
+    create_depot_deadhead_stops,
+    create_depot_deadhead_trips,
+    infer_depot_trip_endpoints,
+)
+from nrel.routee.transit.prediction.generate_deadhead_traces import (
+    create_deadhead_shapes,
+)
 from nrel.routee.transit.prediction.grade.add_grade import run_gradeit_parallel
 from nrel.routee.transit.prediction.grade.tile_resolution import TileResolution
 
@@ -148,10 +160,8 @@ def upsample_shape(shape_df: pd.DataFrame) -> pd.DataFrame:
         lambda x: datetime.timedelta(seconds=round(x.total_seconds()))
     )
     # Define an arbitrary date to convert from timedelta to datetime
-    date_tmp = datetime.datetime(2023, 9, 3)
-    shape_df["timestamp"] = (
-        datetime.timedelta(seconds=0) + shape_df["segment_duration_delta"] + date_tmp
-    )
+    date_tmp = pd.Timestamp(datetime.datetime(2023, 9, 3))
+    shape_df["timestamp"] = date_tmp + shape_df["segment_duration_delta"]
 
     # Upsample to 1s
     shape_id_tmp = shape_df.shape_id.iloc[0]
@@ -286,7 +296,7 @@ def estimate_trip_timestamps(trip_shape_df: pd.DataFrame) -> pd.DataFrame:
     """
     trip_shape_df["segment_duration_delta"] = (
         trip_shape_df["shape_dist_traveled"]
-        / trip_shape_df["shape_dist_traveled"].max()
+        / (trip_shape_df["shape_dist_traveled"].max() + 0.0001)
         * (trip_shape_df["d_time"] - trip_shape_df["o_time"])
     )
     trip_shape_df["segment_duration_delta"] = trip_shape_df[
@@ -407,12 +417,15 @@ def extend_trip_traces(
 
 def build_routee_features_with_osm(
     input_directory: Union[str, Path],
+    depot_directory: Union[str, Path],
     date_incl: str | datetime.date | None = None,
     routes_incl: list[str] | None = None,
+    add_between_trip_deadhead: bool = True,
+    add_depot_deadhead: bool = True,
     add_road_grade: bool = True,
     tile_resolution: TileResolution | str = TileResolution.ONE_THIRD_ARC_SECOND,
     n_processes: int = mp.cpu_count(),
-) -> pd.DataFrame:
+) -> tuple[pd.DataFrame, pd.DataFrame, Feed]:
     """Process a GTFS feed to provide inputs for RouteE-powertrain energy prediction.
 
     This function processes a GTFS feed to estimate link-level bus speeds and
@@ -430,6 +443,10 @@ def build_routee_features_with_osm(
             If None, includes all dates.
         routes_incl (list[str] | None, optional): List of route_short_name values
             to filter trips. If None, includes all routes.
+        add_depot_deadhead (bool, optional): Whether to add deadhead trips from and to depot.
+            Defaults to True.
+        add_between_trip_deadhead (bool, optional): Whether to add deadhead trips between adjacent trips.
+            Defaults to True.
         add_road_grade (bool, optional): Whether to append road grade information.
             Defaults to True.
         tile_resolution (TileResolution | str, optional): The resolution of the USGS
@@ -439,8 +456,12 @@ def build_routee_features_with_osm(
             multiprocessing. Defaults to mp.cpu_count().
 
     Returns:
-        pd.DataFrame: DataFrame with link-level speed, distance, and (optionally)
+        tuple:
+            - result_df: DataFrame with link-level speed, distance, and (optionally)
             grade for all bus trips in scope.
+            - trips_df: trips DataFrame with potential deadhead trips added
+            - Feed: The loaded GTFS feed object.
+
     """
     # 1) Process GTFS inputs
     trips_df, shapes_df, feed = read_in_gtfs(
@@ -448,8 +469,108 @@ def build_routee_features_with_osm(
         date_incl=date_incl,
         routes_incl=routes_incl,
     )
+    stop_times_df = feed.stop_times
 
-    # 2) Refine shapes
+    if add_between_trip_deadhead:
+        # 2) Optionally, add between-trip deadhead trips and update feed
+        # Create between trip deadhead trips
+        between_trip_deadhead_trips_df = create_between_trip_deadhead_trips(
+            trips_df, stop_times_df
+        )
+        # Create between trip deadhead stop_times and stops
+        (
+            between_trip_deadhead_stop_times_df,
+            between_trip_deadhead_stops_df,
+            between_trip_ODs,
+        ) = create_between_trip_deadhead_stops(feed, between_trip_deadhead_trips_df)
+
+        # Remove ODs with same origin and destination
+        between_trip_ODs = between_trip_ODs[
+            between_trip_ODs.geometry_origin != between_trip_ODs.geometry_destination
+        ]
+        between_trip_deadhead_shapes_df = create_deadhead_shapes(
+            df=between_trip_ODs, n_processes=1
+        )
+
+        # Update trips_df, shapes_df, and feed
+        # Before updating, update deadhead_trips_df as some blocks may have the same first
+        # and last stop therefore won't shown in deadhead_shapes_df
+        between_trip_deadhead_trips_df = between_trip_deadhead_trips_df[
+            between_trip_deadhead_trips_df["shape_id"].isin(
+                between_trip_deadhead_shapes_df["shape_id"].unique()
+            )
+        ]
+        # Update trips_df, shapes_df, and feed
+        trips_df = pd.concat(
+            [trips_df, between_trip_deadhead_trips_df], ignore_index=True
+        )
+        shapes_df = pd.concat(
+            [shapes_df, between_trip_deadhead_shapes_df], ignore_index=True
+        )
+        feed.trips = pd.concat(
+            [feed.trips, between_trip_deadhead_trips_df], ignore_index=True
+        )
+        feed.shapes = pd.concat(
+            [feed.shapes, between_trip_deadhead_shapes_df], ignore_index=True
+        )
+        feed.stop_times = pd.concat(
+            [feed.stop_times, between_trip_deadhead_stop_times_df], ignore_index=True
+        )
+        feed.stops = pd.concat(
+            [feed.stops, between_trip_deadhead_stops_df], ignore_index=True
+        )
+
+    if add_depot_deadhead:
+        # Create depot deadhead trips
+        deadhead_trips_df = create_depot_deadhead_trips(trips_df)
+
+        # Create depot deadhead stop_times and stops
+        first_stops_gdf, last_stops_gdf = infer_depot_trip_endpoints(
+            trips_df, feed, path_to_depots=Path(depot_directory) / "Transit_Depot.shp"
+        )
+        deadhead_stop_times_df, deadhead_stops_df = create_depot_deadhead_stops(
+            first_stops_gdf, last_stops_gdf, deadhead_trips_df
+        )
+
+        # Generate deadhead trip shapes for trips from depot to first stop
+        from_depot_deadhead_shapes_df = create_deadhead_shapes(
+            df=first_stops_gdf, n_processes=1
+        )
+        from_depot_deadhead_shapes_df["shape_id"] = from_depot_deadhead_shapes_df[
+            "shape_id"
+        ].apply(lambda x: "from_depot_" + x)
+
+        # Generate deadhead trip shapes for trips from last stop to depot
+        to_depot_deadhead_shapes_df = create_deadhead_shapes(
+            df=last_stops_gdf, n_processes=1
+        )
+        to_depot_deadhead_shapes_df["shape_id"] = to_depot_deadhead_shapes_df[
+            "shape_id"
+        ].apply(lambda x: "to_depot_" + x)
+
+        # Combine all deadhead shapes
+        deadhead_shapes_df = pd.concat(
+            [from_depot_deadhead_shapes_df, to_depot_deadhead_shapes_df],
+            ignore_index=True,
+        )
+
+        # Update trips_df, shapes_df, and feed
+        # Before updating, update deadhead_trips_df as some blocks may have the same first
+        # and last stop therefore won't shown in deadhead_shapes_df
+        deadhead_trips_df = deadhead_trips_df[
+            deadhead_trips_df["shape_id"].isin(deadhead_shapes_df["shape_id"].unique())
+        ]
+        # Update trips_df, shapes_df, and feed
+        trips_df = pd.concat([trips_df, deadhead_trips_df], ignore_index=True)
+        shapes_df = pd.concat([shapes_df, deadhead_shapes_df], ignore_index=True)
+        feed.trips = pd.concat([feed.trips, deadhead_trips_df], ignore_index=True)
+        feed.shapes = pd.concat([feed.shapes, deadhead_shapes_df], ignore_index=True)
+        feed.stop_times = pd.concat(
+            [feed.stop_times, deadhead_stop_times_df], ignore_index=True
+        )
+        feed.stops = pd.concat([feed.stops, deadhead_stops_df], ignore_index=True)
+
+    # 4) Match shapes to road network and gather RouteE-Powertrain inputs
     # Upsample all shapes
     df_shape_list = [group for _, group in shapes_df.groupby("shape_id")]
     with mp.Pool(n_processes) as pool:
@@ -477,7 +598,7 @@ def build_routee_features_with_osm(
         add_stop_flag=False,
     )
 
-    # Aggregate data at road link level to reduce computational burden
+    # Aggregate data at road link level
     trip_links_df = (
         trips_df_ext.groupby(by=["trip_id", "shape_id", "road_id"])
         .agg(
@@ -496,6 +617,7 @@ def build_routee_features_with_osm(
     trip_links_df["travel_time_minutes"] /= 60
     trips_df_list = [t_df for _, t_df in trip_links_df.groupby("trip_id")]
 
+    # 5) Add road grade
     if add_road_grade:
         result_df = run_gradeit_parallel(
             trip_dfs_list=trips_df_list,
@@ -505,4 +627,4 @@ def build_routee_features_with_osm(
     else:
         result_df = pd.concat(trips_df_list)
 
-    return result_df
+    return result_df, trips_df, feed

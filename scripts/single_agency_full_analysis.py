@@ -33,18 +33,23 @@ if __name__ == "__main__":
     import multiprocessing as mp
     import os
     import time
-    import pandas as pd
+    import warnings
     from pathlib import Path
 
+    import pandas as pd
+
     from nrel.routee.transit import (
+        aggregate_results_by_trip,
         build_routee_features_with_osm,
         predict_for_all_trips,
-        aggregate_results_by_trip,
     )
+    from nrel.routee.transit.prediction.add_temp_feature import add_HVAC_energy
 
     # Suppress GDAL/PROJ warnings, which flood the output when we run gradeit
     # TODO: resolve underlying issue that generates these warnings
     os.environ["PROJ_DEBUG"] = "0"
+    # Suppress pandas FutureWarning that come from mappymatch library
+    warnings.filterwarnings("ignore", category=FutureWarning, module="mappymatch")
 
     # Set up logging: Clear any existing handlers
     logging.getLogger().handlers.clear()
@@ -60,17 +65,22 @@ if __name__ == "__main__":
 
     # Set inputs
     n_proc = mp.cpu_count()
-    routee_vehicle_model = "Transit_Bus_Diesel"
+    routee_vehicle_model = "Transit_Bus_Battery_Electric"
+    add_thermal_impacts = True
     input_directory = HERE / "../sample-inputs/saltlake/gtfs"
+    depot_directory = HERE / "../FTA_Depot"
     output_directory = HERE / "../reports/saltlake"
     if not output_directory.exists():
         output_directory.mkdir(parents=True)
 
     start_time = time.time()
-    routee_input_df = build_routee_features_with_osm(
+    routee_input_df, trips_df, feed = build_routee_features_with_osm(
         input_directory=input_directory,
+        depot_directory=depot_directory,
         date_incl="2023/08/02",
-        routes_incl=["9"],
+        routes_incl=["205"],
+        add_between_trip_deadhead=True,
+        add_depot_deadhead=True,
         add_road_grade=True,
         n_processes=n_proc,
     )
@@ -93,5 +103,9 @@ if __name__ == "__main__":
     # Summarize predictions by trip
     energy_by_trip = aggregate_results_by_trip(routee_results, routee_vehicle_model)
 
+    # Add HVAC energy to trip
+    if add_thermal_impacts:
+        HVAC_energy_df = add_HVAC_energy(feed, trips_df)
+        energy_by_trip = energy_by_trip.merge(HVAC_energy_df, on="trip_id", how="left")
     energy_by_trip.to_csv(output_directory / "trip_energy_predictions.csv")
     logger.info(f"Finished predictions in {time.time() - start_time:.2f} s")
