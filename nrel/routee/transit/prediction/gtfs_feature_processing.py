@@ -160,10 +160,8 @@ def upsample_shape(shape_df: pd.DataFrame) -> pd.DataFrame:
         lambda x: datetime.timedelta(seconds=round(x.total_seconds()))
     )
     # Define an arbitrary date to convert from timedelta to datetime
-    date_tmp = datetime.datetime(2023, 9, 3)
-    shape_df["timestamp"] = (
-        datetime.timedelta(seconds=0) + shape_df["segment_duration_delta"] + date_tmp
-    )
+    date_tmp = pd.Timestamp(datetime.datetime(2023, 9, 3))
+    shape_df["timestamp"] = date_tmp + shape_df["segment_duration_delta"]
 
     # Upsample to 1s
     shape_id_tmp = shape_df.shape_id.iloc[0]

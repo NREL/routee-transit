@@ -33,8 +33,8 @@ if __name__ == "__main__":
     import multiprocessing as mp
     import os
     import time
-    from pathlib import Path
     import warnings
+    from pathlib import Path
 
     import pandas as pd
 
