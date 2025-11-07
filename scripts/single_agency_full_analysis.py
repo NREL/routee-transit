@@ -49,7 +49,7 @@ if __name__ == "__main__":
     # TODO: resolve underlying issue that generates these warnings
     os.environ["PROJ_DEBUG"] = "0"
     # Suppress pandas FutureWarning that come from mappymatch library
-    warnings.filterwarnings('ignore', category=FutureWarning, module='mappymatch')
+    warnings.filterwarnings("ignore", category=FutureWarning, module="mappymatch")
 
     # Set up logging: Clear any existing handlers
     logging.getLogger().handlers.clear()
