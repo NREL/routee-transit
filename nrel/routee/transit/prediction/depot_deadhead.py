@@ -53,13 +53,14 @@ def create_depot_deadhead_trips(
         last_trip = block_trips.iloc[-1]
         # Create trip from depot to first stop
         from_depot_trip_id = f"depot_to_{first_trip['trip_id']}"
+        from_depot_route = f"from_depot_{block_id}"
         from_depot_trip = {
             "trip_id": from_depot_trip_id,
-            "route_id": first_trip["route_id"],
+            "route_id": from_depot_route,
             "service_id": first_trip["service_id"],
             "block_id": block_id,
-            "shape_id": f"from_depot_{block_id}",
-            "route_short_name": f"from_depot_{block_id}",
+            "shape_id": from_depot_route,
+            "route_short_name": from_depot_route,
             "route_type": 3,  # 3 means bus
             "route_desc": f"Deadhead from depot to {first_trip['trip_id']}",
             "agency_id": first_trip.get("agency_id", None),
@@ -67,14 +68,15 @@ def create_depot_deadhead_trips(
         depot_trips.append(from_depot_trip)
         # Create trip from last stop to depot
         to_depot_trip_id = f"{last_trip['trip_id']}_to_depot"
+        to_depot_route = f"to_depot_{block_id}"
         to_depot_trip = {
             "trip_id": to_depot_trip_id,
-            "route_id": last_trip["route_id"],
+            "route_id": to_depot_route,
             "service_id": last_trip["service_id"],
             "block_id": block_id,
-            "shape_id": f"to_depot_{block_id}",
-            "route_short_name": last_trip.get("route_short_name", ""),
-            "route_type": last_trip.get("route_type", 3),  # Default to bus
+            "shape_id": to_depot_route,
+            "route_short_name": to_depot_route,
+            "route_type": 3,  # 3 means bus
             "route_desc": f"Deadhead from {last_trip['trip_id']} to depot",
             "agency_id": last_trip.get("agency_id", None),
         }
