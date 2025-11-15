@@ -99,6 +99,7 @@ class NetworkRouter:
             - 'shape_pt_lat' (float): Latitude
             - 'shape_dist_traveled' (float): Cumulative distance in km from route start
         """
+        assert self.graph is not None
         graph = self.graph
         src = ox.nearest_nodes(graph, start_lon, start_lat)
         dst = ox.nearest_nodes(graph, end_lon, end_lat)
@@ -153,7 +154,7 @@ class NetworkRouter:
         coords = list(merged.coords)  # list of (lon, lat)
         rows = []
         prev_lat = None
-        prev_lon = None
+        prev_lon = 0.0
         cum_km = 0.0
         for seq, (lon, lat) in enumerate(coords, start=1):
             if prev_lat is not None:
@@ -181,7 +182,7 @@ class NetworkRouter:
         buffer_deg_lat: float = 0.018,
         buffer_deg_lon: float = 0.022,
         network_type: str = "drive",
-    ):
+    ) -> "NetworkRouter":
         """
         Create router from a collection of point geometries.
 

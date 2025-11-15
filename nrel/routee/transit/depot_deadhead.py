@@ -13,13 +13,13 @@ from shapely.geometry import Point
 def get_default_depot_path() -> Path:
     """
     Return the default path to the FTA_Depot directory in the repository.
-    
+
     The default depot locations come from the National Transit Database's
     "Public Transit Facilities and Stations - 2023" dataset, which contains
     depot/facility locations for transit agencies across the United States.
-    
+
     Data source: https://data.transportation.gov/stories/s/gd62-jzra
-    
+
     Returns
     -------
     Path

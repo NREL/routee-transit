@@ -107,15 +107,15 @@ class GTFSEnergyPredictor:
         if depot_path is None:
             self.depot_path = get_default_depot_path()
         else:
-            self.depot_path = Path(depot_path) if depot_path else None
+            self.depot_path = Path(depot_path)
         self.n_processes = n_processes if n_processes is not None else mp.cpu_count()
 
         # Internal state - populated by various methods
         self.feed: Feed | None = None
-        self.trips: pd.DataFrame | None = None
-        self.shapes: pd.DataFrame | None = None
-        self.matched_shapes: pd.DataFrame | None = None
-        self.routee_inputs: pd.DataFrame | None = None
+        self.trips: pd.DataFrame = pd.DataFrame()
+        self.shapes: pd.DataFrame = pd.DataFrame()
+        self.matched_shapes: pd.DataFrame = pd.DataFrame()
+        self.routee_inputs: pd.DataFrame = pd.DataFrame()
         self.energy_predictions: dict[str, pd.DataFrame] = {}
 
         logger.info(f"Initialized GTFSEnergyPredictor for {self.gtfs_path}")
@@ -312,7 +312,7 @@ class GTFSEnergyPredictor:
             RuntimeError: If GTFS data hasn't been loaded yet
             ValueError: If no trips match the specified filters
         """
-        if self.feed is None or self.trips is None:
+        if self.feed is None or self.trips.empty:
             raise RuntimeError("Must call load_gtfs_data() before filtering trips")
 
         logger.info(f"Filtering trips (date={date}, routes={routes})...")
@@ -356,7 +356,7 @@ class GTFSEnergyPredictor:
         Raises:
             RuntimeError: If GTFS data hasn't been loaded yet
         """
-        if self.feed is None or self.trips is None or self.shapes is None:
+        if self.feed is None or self.trips.empty or self.shapes.empty:
             raise RuntimeError(
                 "Must call load_gtfs_data() before adding deadhead trips"
             )
@@ -425,7 +425,7 @@ class GTFSEnergyPredictor:
         Raises:
             RuntimeError: If GTFS data hasn't been loaded or depot_path not specified
         """
-        if self.feed is None or self.trips is None or self.shapes is None:
+        if self.feed is None or self.trips.empty or self.shapes.empty:
             raise RuntimeError(
                 "Must call load_gtfs_data() before adding deadhead trips"
             )
@@ -531,7 +531,7 @@ class GTFSEnergyPredictor:
         Raises:
             RuntimeError: If GTFS data hasn't been loaded yet
         """
-        if self.feed is None or self.trips is None or self.shapes is None:
+        if self.feed is None or self.trips.empty or self.shapes.empty:
             raise RuntimeError(
                 "Must call load_gtfs_data() before matching shapes to network"
             )
@@ -585,7 +585,7 @@ class GTFSEnergyPredictor:
         self,
         tile_resolution: TileResolution | str = TileResolution.ONE_THIRD_ARC_SECOND,
     ) -> Self:
-        if self.routee_inputs is None:
+        if self.routee_inputs.empty:
             raise RuntimeError("Must run match_shapes_to_network() before adding grade")
 
         logger.info("Adding road grade information...")
@@ -639,6 +639,7 @@ class GTFSEnergyPredictor:
                 - Single model name: "Transit_Bus_Battery_Electric"
                 - List of models: ["BEB", "Diesel_2016_Bus"]
                 - Path to custom model JSON
+                - List of paths to custom model JSON
             add_hvac: Whether to add HVAC energy consumption to trip-level results
 
         Returns:
@@ -651,21 +652,30 @@ class GTFSEnergyPredictor:
         Raises:
             RuntimeError: If routee_inputs haven't been generated yet
         """
-        if self.routee_inputs is None:
+        if self.routee_inputs.empty:
             raise RuntimeError(
                 "Must call match_shapes_to_network() before predicting energy"
             )
 
-        # Normalize to list
+        vehicle_models_list: list[str | Path]
         if isinstance(vehicle_models, (str, Path)):
-            vehicle_models = [vehicle_models]
+            vehicle_models_list = [vehicle_models]
+        elif isinstance(vehicle_models, list):
+            # Create a new list to satisfy mypy type variance rules
+            vehicle_models_list = [item for item in vehicle_models]
+        else:
+            raise ValueError(
+                f"Incompatible type for vehicle_models: {type(vehicle_models)}"
+            )
 
-        logger.info(f"Predicting energy for {len(vehicle_models)} vehicle model(s)...")
+        logger.info(
+            f"Predicting energy for {len(vehicle_models_list)} vehicle model(s)..."
+        )
 
-        all_link_results = []
-        all_trip_results = []
+        all_link_results: list[pd.DataFrame] = []
+        all_trip_results: list[pd.DataFrame] = []
 
-        for model in vehicle_models:
+        for model in vehicle_models_list:
             logger.info(f"Processing model: {model}")
 
             # Run link-level prediction
@@ -678,6 +688,10 @@ class GTFSEnergyPredictor:
             # Optionally add HVAC
             if add_hvac:
                 logger.info("Adding HVAC energy impacts...")
+                if self.feed is None or self.trips.empty:
+                    raise RuntimeError(
+                        "Feed and trips must be loaded to add HVAC energy"
+                    )
                 hvac_energy = add_HVAC_energy(self.feed, self.trips)
                 trip_results = trip_results.merge(hvac_energy, on="trip_id", how="left")
 
@@ -688,8 +702,14 @@ class GTFSEnergyPredictor:
             all_trip_results.append(trip_results)
 
         # Combine all models
-        self.energy_predictions["link"] = pd.concat(all_link_results, ignore_index=True)
-        self.energy_predictions["trip"] = pd.concat(all_trip_results, ignore_index=True)
+        if all_link_results:
+            self.energy_predictions["link"] = pd.concat(
+                all_link_results, ignore_index=True
+            )
+        if all_trip_results:
+            self.energy_predictions["trip"] = pd.concat(
+                all_trip_results, ignore_index=True
+            )
 
         logger.info("Energy prediction complete")
         return self.energy_predictions
@@ -704,6 +724,9 @@ class GTFSEnergyPredictor:
         Returns:
             DataFrame with link-level energy predictions
         """
+        if self.routee_inputs.empty:
+            raise RuntimeError("No RouteE inputs available for predictions.")
+
         # Prepare data for prediction - split by trip
         links_by_trip = [
             self.routee_inputs[self.routee_inputs["trip_id"] == trip_id].copy()
@@ -719,7 +742,13 @@ class GTFSEnergyPredictor:
         all_predictions = pd.concat(predictions)
 
         # Combine with inputs
-        results = pd.concat([self.routee_inputs, all_predictions], axis=1)
+        if self.routee_inputs.empty:
+            # This should not happen if called from predict_energy
+            return pd.DataFrame()
+
+        results = pd.concat(
+            [self.routee_inputs.loc[all_predictions.index], all_predictions], axis=1
+        )
 
         # Select relevant columns
         pred_cols = list(all_predictions.columns)
@@ -788,9 +817,7 @@ class GTFSEnergyPredictor:
 
         return energy_by_trip.drop(columns="kilometers")
 
-    def get_link_predictions(
-        self, vehicle_model: str | None = None
-    ) -> pd.DataFrame | None:
+    def get_link_predictions(self, vehicle_model: str | None = None) -> pd.DataFrame:
         """
         Get link-level energy predictions.
 
@@ -800,13 +827,15 @@ class GTFSEnergyPredictor:
         Returns:
             DataFrame with predictions, or None if not yet computed
         """
-        if vehicle_model:
-            return self.energy_predictions.get(f"{vehicle_model}_link")
-        return self.energy_predictions.get("link")
+        key = f"{vehicle_model}_link" if vehicle_model else "link"
+        if key not in self.energy_predictions:
+            raise KeyError(
+                f"No link-level predictions found for '{key}'. "
+                "Call predict_energy() before accessing results."
+            )
+        return self.energy_predictions[key]
 
-    def get_trip_predictions(
-        self, vehicle_model: str | None = None
-    ) -> pd.DataFrame | None:
+    def get_trip_predictions(self, vehicle_model: str | None = None) -> pd.DataFrame:
         """
         Get trip-level energy predictions.
 
@@ -814,11 +843,18 @@ class GTFSEnergyPredictor:
             vehicle_model: Specific model name, or None for all models
 
         Returns:
-            DataFrame with predictions, or None if not yet computed
+            DataFrame with predictions
+
+        Raises:
+            KeyError: If predictions have not been generated yet
         """
-        if vehicle_model:
-            return self.energy_predictions.get(f"{vehicle_model}_trip")
-        return self.energy_predictions.get("trip")
+        key = f"{vehicle_model}_trip" if vehicle_model else "trip"
+        if key not in self.energy_predictions:
+            raise KeyError(
+                f"No trip-level predictions found for '{key}'. "
+                "Call predict_energy() before accessing results."
+            )
+        return self.energy_predictions[key]
 
     def save_results(
         self,
