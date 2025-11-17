@@ -225,7 +225,7 @@ class GTFSEnergyPredictor:
 
         if add_depot_deadhead:
             if self.depot_path is None:
-                self.logger.warning(
+                logger.warning(
                     "Cannot add depot deadhead: depot_path not provided during initialization"
                 )
             else:
@@ -730,11 +730,6 @@ class GTFSEnergyPredictor:
             predictions = pool.map(predict_partial, links_by_trip)
 
         all_predictions = pd.concat(predictions)
-
-        # Combine with inputs
-        if self.routee_inputs.empty:
-            # This should not happen if called from predict_energy
-            return pd.DataFrame()
 
         results = pd.concat(
             [self.routee_inputs.loc[all_predictions.index], all_predictions], axis=1
