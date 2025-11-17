@@ -142,12 +142,12 @@ class GTFSEnergyPredictor:
 
         This is a convenience method that chains together all processing steps:
         1. Load GTFS data
-        2. Optionally filter trips
-        3. Optionally add deadhead trips
+        2. Optionally filter trips (`date`, `routes`)
+        3. Optionally add deadhead trips (`add_mid_block_deadhead`, `add_depot_deadhead`)
         4. Match shapes to OpenStreetMap network
-        5. Optionally add road grade
+        5. Optionally add road grade (`add_grade`)
         6. Predict energy consumption
-        7. Optionally save results
+        7. Optionally save results (`save_results`)
 
         For more control over individual steps, use the individual methods
         (load_gtfs_data, filter_trips, add_mid_block_deadhead, etc.).
@@ -518,13 +518,6 @@ class GTFSEnergyPredictor:
         4. Aggregates data at road link level
         5. Optionally adds road grade information
 
-        This is a key method for customization - subclasses can override
-        _match_shapes_to_network() to use different network data (e.g., TomTom).
-
-        Args:
-            add_grade: Whether to add road grade information using USGS elevation data
-            tile_resolution: Resolution for USGS elevation tiles (if add_grade=True)
-
         Returns:
             Self for method chaining
 
@@ -545,7 +538,7 @@ class GTFSEnergyPredictor:
 
         logger.debug(f"Upsampled {len(shape_groups)} shapes")
 
-        # Step 2: Match to network (overridable by subclasses)
+        # Step 2: Match to network
         matched_shapes = self._match_shapes_to_network(upsampled_shapes)
         self.matched_shapes = matched_shapes
 
@@ -606,9 +599,6 @@ class GTFSEnergyPredictor:
     ) -> pd.DataFrame:
         """
         Match upsampled shapes to OpenStreetMap road network.
-
-        This is the core network matching logic. Subclasses can override this
-        method to use different network data (e.g., TomTom, HERE, etc.).
 
         Args:
             upsampled_shapes: List of upsampled shape DataFrames
