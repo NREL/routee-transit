@@ -115,8 +115,10 @@ def load_thermal_lookup_table() -> pd.DataFrame:
 
 
 def compute_HVAC_energy(
-    start_hours: pd.Series, end_hours: pd.Series, power_array: np.ndarray
-) -> np.ndarray:
+    start_hours: pd.Series,
+    end_hours: pd.Series,
+    power_array: np.typing.NDArray[np.number],
+) -> np.typing.NDArray[np.number]:
     """
     Calculate HVAC + BTMS energy consumption between time intervals.
 
