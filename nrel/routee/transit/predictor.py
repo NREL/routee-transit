@@ -341,7 +341,35 @@ class GTFSEnergyPredictor:
 
         logger.info(f"Filtered to {len(self.trips)} trips and {len(shape_ids)} shapes")
 
-        
+        # Add trip durations
+        st_incl = self.feed.stop_times[
+            self.feed.stop_times["trip_id"].isin(self.trips["trip_id"].unique())
+        ]
+        trip_times = st_incl.groupby("trip_id").agg(
+            start_time=("arrival_time", "min"), end_time=("arrival_time", "max")
+        )
+        trip_times["trip_duration_minutes"] = (
+            trip_times["end_time"] - trip_times["start_time"]
+        ).dt.total_seconds() / 60
+        self.trips = self.trips.merge(
+            trip_times[["trip_duration_minutes"]],
+            left_on="trip_id",
+            right_index=True,
+        )
+
+        # Add number of times each trip is run
+        sid_counts = (
+            self.feed.get_service_ids_all_dates()
+            .groupby("service_id")["date"]
+            .count()
+            .rename("trip_count")
+        )
+        self.trips = self.trips.merge(
+            sid_counts,
+            left_on="service_id",
+            right_index=True,
+        )
+
         return self
 
     def add_mid_block_deadhead(self) -> Self:
@@ -709,38 +737,6 @@ class GTFSEnergyPredictor:
         if all_trip_results:
             self.energy_predictions["trip"] = pd.concat(
                 all_trip_results, ignore_index=True
-            )
-
-            # TODO: move these trip-level calculations elsewhere
-            # Add trip durations
-            st_incl = self.feed.stop_times[
-                self.feed.stop_times["trip_id"].isin(
-                    self.energy_predictions["trip"]["trip_id"].unique()
-                )
-            ]
-            trip_times = st_incl.groupby("trip_id").agg(
-                start_time=("arrival_time", "min"), end_time=("arrival_time", "max")
-            )
-            trip_times["trip_duration_minutes"] = (
-                trip_times["end_time"] - trip_times["start_time"]
-            ).dt.total_seconds() / 60
-            self.energy_predictions["trip"] = self.energy_predictions["trip"].merge(
-                trip_times[["trip_duration_minutes"]],
-                left_on="trip_id",
-                right_index=True,
-            )
-
-            # Add number of times each trip is run
-            sid_counts = (
-                self.feed.get_service_ids_all_dates()
-                .groupby("service_id")["date"]
-                .count()
-                .rename("trip_count")
-            )
-            self.energy_predictions["trip"] = self.energy_predictions["trip"].merge(
-                sid_counts,
-                left_on="service_id",
-                right_index=True,
             )
 
         logger.info("Energy prediction complete")
