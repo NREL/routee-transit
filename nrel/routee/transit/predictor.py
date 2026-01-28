@@ -351,8 +351,22 @@ class GTFSEnergyPredictor:
         trip_times["trip_duration_minutes"] = (
             trip_times["end_time"] - trip_times["start_time"]
         ).dt.total_seconds() / 60
+
+        # Convert start/end times to GTFS-style strings
+        def format_timedelta(td: pd.Timedelta) -> str:
+            if pd.isna(td):
+                return ""
+            total_seconds = int(td.total_seconds())
+            hours = total_seconds // 3600
+            minutes = (total_seconds % 3600) // 60
+            seconds = total_seconds % 60
+            return f"{hours:02}:{minutes:02}:{seconds:02}"
+
+        trip_times["start_time"] = trip_times["start_time"].apply(format_timedelta)
+        trip_times["end_time"] = trip_times["end_time"].apply(format_timedelta)
+
         self.trips = self.trips.merge(
-            trip_times[["trip_duration_minutes"]],
+            trip_times[["start_time", "end_time", "trip_duration_minutes"]],
             left_on="trip_id",
             right_index=True,
         )
@@ -723,8 +737,11 @@ class GTFSEnergyPredictor:
                     )
                 hvac_energy = add_HVAC_energy(self.feed, self.trips)
                 trip_results = trip_results.merge(hvac_energy, on="trip_id", how="left")
-                # Add HVAC energy to powertrain energy
-                trip_results["energy_used"] += trip_results["hvac_energy_kWh"]
+                # Add HVAC energy to powertrain energy for electric vehicles
+                kwh_mask = trip_results["energy_unit"] == "kWh"
+                trip_results.loc[kwh_mask, "energy_used"] += trip_results.loc[
+                    kwh_mask, "hvac_energy_kWh"
+                ]
 
             # Store results
             self.energy_predictions[f"{model}_link"] = link_results
