@@ -353,7 +353,7 @@ class GTFSEnergyPredictor:
         ).dt.total_seconds() / 60
 
         # Convert start/end times to GTFS-style strings
-        def format_timedelta(td):
+        def format_timedelta(td: pd.Timedelta) -> str:
             if pd.isna(td):
                 return ""
             total_seconds = int(td.total_seconds())
