@@ -734,8 +734,11 @@ class GTFSEnergyPredictor:
                     )
                 hvac_energy = add_HVAC_energy(self.feed, self.trips)
                 trip_results = trip_results.merge(hvac_energy, on="trip_id", how="left")
-                # Add HVAC energy to powertrain energy
-                trip_results["energy_used"] += trip_results["hvac_energy_kWh"]
+                # Add HVAC energy to powertrain energy for electric vehicles
+                kwh_mask = trip_results["energy_unit"] == "kWh"
+                trip_results.loc[kwh_mask, "energy_used"] += trip_results.loc[
+                    kwh_mask, "hvac_energy_kWh"
+                ]
 
             # Store results
             self.energy_predictions[f"{model}_link"] = link_results
